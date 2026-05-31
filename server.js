@@ -29,16 +29,25 @@ app.get('/signals', (req, res) => {
 app.get('/analyze/:ticker', async (req, res) => {
   try {
     const ticker = req.params.ticker.toUpperCase() + '.IS';
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y&includePrePost=false&events=div%2Csplit`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`;
     
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Accept-Language': 'en-US,en;q=0.9'
       }
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    console.log('Yahoo yanıtı:', text.substring(0, 500));
+    
+    const data = JSON.parse(text);
+
+    if (!data.chart || !data.chart.result) {
+      return res.status(500).json({ error: 'Yahoo Finance veri döndürmedi', raw: text.substring(0, 300) });
+    }
+
     const prices = data.chart.result[0].indicators.quote[0].close;
     const volumes = data.chart.result[0].indicators.quote[0].volume;
     const timestamps = data.chart.result[0].timestamp;
@@ -81,7 +90,8 @@ app.get('/analyze/:ticker', async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ error: 'Hisse bulunamadı veya veri alınamadı' });
+    console.log('Hata:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
