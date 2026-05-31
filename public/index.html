@@ -61,6 +61,15 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 .sig-main.red{color:#ff4444}
 .sig-sub{font-size:1rem;color:#aaa;margin-bottom:10px}
 .sig-desc{font-size:.85rem;color:#888;line-height:1.5}
+.st-box{background:#1a1a1a;border-radius:12px;padding:22px;border-left:5px solid #333}
+.st-box.up{border-left-color:#00c853}
+.st-box.down{border-left-color:#ff4444}
+.st-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.st-main{font-size:1.8rem;font-weight:bold}
+.st-main.up{color:#00c853}
+.st-main.down{color:#ff4444}
+.st-sub{font-size:.95rem;color:#aaa}
+.st-desc{font-size:.85rem;color:#888;line-height:1.5}
 .period-btns{display:flex;gap:6px}
 .period-btns button{padding:4px 12px;background:#1a1a1a;color:#aaa;border:1px solid #333;border-radius:6px;cursor:pointer;font-size:.75rem;font-weight:bold}
 .period-btns button.active{background:#f0b90b;color:#000;border-color:#f0b90b}
@@ -165,10 +174,30 @@ async function run(keepTicker) {
     if (d.error) { r.innerHTML = '<p class="error">❌ ' + d.error + '</p>'; return; }
     lastData = d;
 
+    // SUPERTREND
+    var stBox = '';
+    if (d.supertrend) {
+      var st = d.supertrend;
+      var up = st.direction === 'up';
+      var stCls = up ? 'up' : 'down';
+      var stMain = up ? '🟢 AL (Yükseliş)' : '🔴 SAT (Düşüş)';
+      var stDist = st.dist >= 0 ? '+' + st.dist : st.dist;
+      var stDesc = up
+        ? 'Fiyat Supertrend çizgisinin üstünde — trend yukarı. Çizgi (₺' + st.value + ') altındaki ilk önemli destek/stop seviyesi gibi çalışır. Fiyat bunun altına inerse trend dönebilir.'
+        : 'Fiyat Supertrend çizgisinin altında — trend aşağı. Çizgi (₺' + st.value + ') üstündeki ilk direnç/stop seviyesi gibi çalışır. Fiyat bunun üstüne çıkarsa trend dönebilir.';
+      stBox =
+        '<div class="st-box ' + stCls + '">' +
+          '<div class="st-top">' +
+            '<span class="st-main ' + stCls + '">' + stMain + '</span>' +
+            '<span class="st-sub">Çizgi: ₺' + st.value + ' (' + stDist + '% mesafe) &nbsp;|&nbsp; ATR: ' + st.atr + '</span>' +
+          '</div>' +
+          '<div class="st-desc">' + stDesc + '</div>' +
+        '</div>';
+    }
+
     // DESTEK / DİRENÇ
     var sr = d.supportResistance;
     var srRows = '';
-    // Dirençler (yukarıdan aşağıya, en uzak önce)
     sr.resistances.slice().reverse().forEach(function(rz){
       srRows += '<div class="sr-row"><span class="sr-tag res">DİRENÇ</span><span class="sr-level">₺' + rz.level + '</span><span class="sr-dist">+' + rz.dist + '% yukarıda</span><span class="sr-touch">' + rz.touches + ' temas</span></div>';
     });
@@ -176,16 +205,7 @@ async function run(keepTicker) {
     sr.supports.forEach(function(sp){
       srRows += '<div class="sr-row"><span class="sr-tag sup">DESTEK</span><span class="sr-level">₺' + sp.level + '</span><span class="sr-dist">' + sp.dist + '% aşağıda</span><span class="sr-touch">' + sp.touches + ' temas</span></div>';
     });
-
-    var nearestRes = sr.resistances.length ? sr.resistances[0] : null;
-    var nearestSup = sr.supports.length ? sr.supports[0] : null;
-    var srNote = '';
-    if (nearestRes && nearestSup) {
-      srNote = 'En yakın direnç +' + nearestRes.dist + '%, en yakın destek ' + nearestSup.dist + '%. "Temas" sayısı o seviyenin kaç kez test edildiğini gösterir — çok temas = güçlü seviye.';
-    } else {
-      srNote = '"Temas" sayısı seviyenin kaç kez test edildiğini gösterir.';
-    }
-
+    var srNote = '"Temas" sayısı o seviyenin kaç kez test edildiğini gösterir — çok temas = güçlü seviye.';
     var srBox = '<div class="sr-wrap">' + srRows + '<hr class="sr-divider"><div class="vol-desc">' + srNote + '</div></div>';
 
     // EMA
@@ -252,6 +272,7 @@ async function run(keepTicker) {
 
     r.innerHTML =
       '<div class="price-header"><div class="tk">📈 ' + d.ticker + '</div><div class="pr">₺' + d.currentPrice + '</div><div class="tf">' + tfLabels[d.timeframe] + ' grafik</div></div>' +
+      '<div class="section"><div class="section-title">Supertrend — Trend Yönü</div>' + stBox + '</div>' +
       '<div class="section"><div class="section-title">Destek / Direnç Seviyeleri</div>' + srBox + '</div>' +
       '<div class="section"><div class="section-title">Üstel Hareketli Ortalamalar (EMA)</div><div class="grid">' + maBoxes + '</div></div>' +
       '<div class="section"><div class="section-title"><span>Hacim Analizi</span><div class="period-btns"><button id="pb_d1" onclick="setPeriod(\'d1\')">1 Bar</button><button id="pb_d5" onclick="setPeriod(\'d5\')">5 Bar</button><button id="pb_d20" onclick="setPeriod(\'d20\')">20 Bar</button></div></div><div class="grid">' + volBoxes + '</div></div>' +
