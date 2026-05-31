@@ -36,26 +36,26 @@ function ema(arr, period) {
   return emaVal;
 }
 
-function calcRSI(closes, period) {
-  if (closes.length < period + 1) period = closes.length - 1;
+function calcRSISeries(closes, period) {
+  if (closes.length < period + 1) return [];
+  const rsiArr = [];
   let gains = 0, losses = 0;
-  // İlk ortalama
   for (let i = 1; i <= period; i++) {
     const diff = closes[i] - closes[i - 1];
     if (diff > 0) gains += diff; else losses += Math.abs(diff);
   }
   let avgGain = gains / period;
   let avgLoss = losses / period;
-  // Wilder smoothing
+  rsiArr[period] = 100 - (100 / (1 + avgGain / (avgLoss || 0.0001)));
   for (let i = period + 1; i < closes.length; i++) {
     const diff = closes[i] - closes[i - 1];
     const g = diff > 0 ? diff : 0;
     const l = diff < 0 ? Math.abs(diff) : 0;
     avgGain = (avgGain * (period - 1) + g) / period;
     avgLoss = (avgLoss * (period - 1) + l) / period;
+    rsiArr[i] = 100 - (100 / (1 + avgGain / (avgLoss || 0.0001)));
   }
-  const rs = avgGain / (avgLoss || 0.0001);
-  return 100 - (100 / (1 + rs));
+  return rsiArr.filter(x => x !== undefined && x !== null);
 }
 
 function priceVolSignal(closes, vols, days, avgVol20) {
@@ -75,15 +75,14 @@ function priceVolSignal(closes, vols, days, avgVol20) {
   return { signal, priceUp, pricePct: parseFloat(pricePct.toFixed(2)), volAboveAvg };
 }
 
-// 1 saatlik veriyi 4 saatliğe çevir
 function resampleTo4h(closes, vols) {
   const newCloses = [], newVols = [];
   for (let i = 0; i < closes.length; i += 4) {
     const chunk = closes.slice(i, i + 4);
     const vchunk = vols.slice(i, i + 4);
     if (chunk.length === 0) continue;
-    newCloses.push(chunk[chunk.length - 1]); // son kapanış
-    newVols.push(vchunk.reduce((a, b) => a + b, 0)); // toplam hacim
+    newCloses.push(chunk[chunk.length - 1]);
+    newVols.push(vchunk.reduce((a, b) => a + b, 0));
   }
   return { closes: newCloses, vols: newVols };
 }
@@ -122,7 +121,6 @@ app.get('/analyze/:ticker', async (req, res) => {
     let closes = valid.map(x => x.p);
     let vols = valid.map(x => x.v);
 
-    // 4 saatlik için resample
     if (cfg.resample) {
       const r = resampleTo4h(closes, vols);
       closes = r.closes;
@@ -144,8 +142,16 @@ app.get('/analyze/:ticker', async (req, res) => {
       return { period: p, value: parseFloat(value.toFixed(2)), above: currentPrice > value, diff: parseFloat(diff.toFixed(2)) };
     });
 
-    // RSI (14)
-    const rsi = calcRSI(closes, 14);
+    // RSI (14) + 9 barlık SMA sinyal çizgisi
+    const rsiSeries = calcRSISeries(closes, 14);
+    const rsi = rsiSeries[rsiSeries.length - 1];
+    let rsiSignal = null, rsiVsSignalPct = null, rsiAboveSignal = null;
+    if (rsiSeries.length >= 9) {
+      const last9 = rsiSeries.slice(-9);
+      rsiSignal = last9.reduce((a, b) => a + b, 0) / 9;
+      rsiAboveSignal = rsi > rsiSignal;
+      rsiVsSignalPct = ((rsi - rsiSignal) / rsiSignal) * 100;
+    }
 
     // HACİM
     const avgVol20 = vols.slice(-20).reduce((a, b) => a + b, 0) / Math.min(vols.length, 20);
@@ -193,6 +199,9 @@ app.get('/analyze/:ticker', async (req, res) => {
       currentPrice: parseFloat(currentPrice.toFixed(2)),
       mas,
       rsi: parseFloat(rsi.toFixed(1)),
+      rsiSignal: rsiSignal !== null ? parseFloat(rsiSignal.toFixed(1)) : null,
+      rsiAboveSignal,
+      rsiVsSignalPct: rsiVsSignalPct !== null ? parseFloat(rsiVsSignalPct.toFixed(2)) : null,
       volume: {
         current: currentVol,
         avg20: Math.round(avgVol20),
