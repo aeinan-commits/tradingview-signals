@@ -29,21 +29,20 @@ app.get('/signals', (req, res) => {
 app.get('/analyze/:ticker', async (req, res) => {
   try {
     const ticker = req.params.ticker.toUpperCase() + '.IS';
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'application/json'
+    };
 
     // Fiyat ve teknik veri
-    const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`;
-    const chartRes = await fetch(chartUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json'
-      }
-    });
+    const chartRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`, { headers });
     const chartData = await chartRes.json();
 
     if (!chartData.chart || !chartData.chart.result || !chartData.chart.result[0]) {
       return res.status(500).json({ error: 'Hisse bulunamadı: ' + ticker });
     }
 
+    const meta = chartData.chart.result[0].meta;
     const quote = chartData.chart.result[0].indicators.quote[0];
     const valid = quote.close.map((p, i) => ({ p, v: quote.volume[i] })).filter(x => x.p !== null && x.v !== null);
     const closes = valid.map(x => x.p);
@@ -64,28 +63,26 @@ app.get('/analyze/:ticker', async (req, res) => {
     const rsi = 100 - (100 / (1 + gains / (losses || 1)));
     const avgVol = vols.slice(-20).reduce((a, b) => a + b, 0) / 20;
 
-    // Temel analiz verisi
-    const summaryUrl = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=defaultKeyStatistics,summaryDetail,financialData`;
-    const summaryRes = await fetch(summaryUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json'
+    // 52 hafta meta'dan
+    const week52High = meta.fiftyTwoWeekHigh || null;
+    const week52Low = meta.fiftyTwoWeekLow || null;
+
+    // Temel analiz - query2
+    let pe = null, pb = null, marketCap = null, dividendYield = null;
+    try {
+      const summaryRes = await fetch(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=defaultKeyStatistics,summaryDetail`, { headers });
+      const summaryData = await summaryRes.json();
+      console.log('Summary:', JSON.stringify(summaryData).substring(0, 400));
+      if (summaryData.quoteSummary && summaryData.quoteSummary.result && summaryData.quoteSummary.result[0]) {
+        const sd = summaryData.quoteSummary.result[0].summaryDetail;
+        const ks = summaryData.quoteSummary.result[0].defaultKeyStatistics;
+        pe = sd?.trailingPE?.raw || null;
+        pb = ks?.priceToBook?.raw || null;
+        marketCap = sd?.marketCap?.raw || null;
+        dividendYield = sd?.dividendYield?.raw || null;
       }
-    });
-    const summaryData = await summaryRes.json();
-
-    let pe = null, pb = null, ps = null, marketCap = null, dividendYield = null, week52High = null, week52Low = null;
-
-    if (summaryData.quoteSummary && summaryData.quoteSummary.result && summaryData.quoteSummary.result[0]) {
-      const sd = summaryData.quoteSummary.result[0].summaryDetail;
-      const ks = summaryData.quoteSummary.result[0].defaultKeyStatistics;
-      pe = sd?.trailingPE?.raw || null;
-      pb = ks?.priceToBook?.raw || null;
-      ps = ks?.priceToSalesTrailing12Months?.raw || null;
-      marketCap = sd?.marketCap?.raw || null;
-      dividendYield = sd?.dividendYield?.raw || null;
-      week52High = sd?.fiftyTwoWeekHigh?.raw || null;
-      week52Low = sd?.fiftyTwoWeekLow?.raw || null;
+    } catch(e) {
+      console.log('Summary hatası:', e.message);
     }
 
     res.json({
@@ -100,13 +97,12 @@ app.get('/analyze/:ticker', async (req, res) => {
       aboveMA50: currentPrice > ma50,
       highVolume: currentVol > avgVol,
       veryHighVolume: currentVol > avgVol * 2,
-      pe: pe ? pe.toFixed(1) : null,
-      pb: pb ? pb.toFixed(2) : null,
-      ps: ps ? ps.toFixed(2) : null,
+      pe: pe ? parseFloat(pe.toFixed(1)) : null,
+      pb: pb ? parseFloat(pb.toFixed(2)) : null,
       marketCap,
-      dividendYield: dividendYield ? (dividendYield * 100).toFixed(2) : null,
-      week52High: week52High ? week52High.toFixed(2) : null,
-      week52Low: week52Low ? week52Low.toFixed(2) : null
+      dividendYield: dividendYield ? parseFloat((dividendYield * 100).toFixed(2)) : null,
+      week52High: week52High ? parseFloat(week52High.toFixed(2)) : null,
+      week52Low: week52Low ? parseFloat(week52Low.toFixed(2)) : null
     });
 
   } catch (err) {
