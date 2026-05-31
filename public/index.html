@@ -14,7 +14,7 @@ h1{color:#f0b90b;text-align:center;margin-bottom:24px}
 .price-header{text-align:center;margin-bottom:20px}
 .price-header .tk{color:#f0b90b;font-size:1.5rem;font-weight:bold}
 .price-header .pr{font-size:2rem;font-weight:bold;margin-top:4px}
-.section{margin-bottom:24px}
+.section{margin-bottom:28px}
 .section-title{color:#888;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;border-bottom:1px solid #2a2a2a;padding-bottom:8px}
 .grid{display:flex;flex-wrap:wrap;gap:12px}
 .ma-box{flex:1;min-width:150px;background:#1a1a1a;border-radius:12px;padding:16px;border-top:3px solid #333}
@@ -26,6 +26,18 @@ h1{color:#f0b90b;text-align:center;margin-bottom:24px}
 .ma-diff.up{color:#00c853}
 .ma-diff.down{color:#ff4444}
 .ma-status{font-size:.75rem;color:#666;margin-top:4px}
+.vol-box{flex:1;min-width:220px;background:#1a1a1a;border-radius:12px;padding:18px;border-left:4px solid #333}
+.vol-box.green{border-left-color:#00c853}
+.vol-box.red{border-left-color:#ff4444}
+.vol-box.purple{border-left-color:#9c27b0}
+.vol-box.yellow{border-left-color:#f0b90b}
+.vol-label{color:#aaa;font-size:.85rem;font-weight:bold;margin-bottom:8px}
+.vol-main{font-size:1.5rem;font-weight:bold;margin-bottom:8px}
+.vol-main.green{color:#00c853}
+.vol-main.red{color:#ff4444}
+.vol-main.purple{color:#ce93d8}
+.vol-main.yellow{color:#f0b90b}
+.vol-desc{font-size:.8rem;color:#888;line-height:1.5}
 .error{color:#ff4444;text-align:center;padding:20px}
 .loading{color:#aaa;text-align:center;padding:20px}
 #result{display:none}
@@ -42,6 +54,13 @@ h1{color:#f0b90b;text-align:center;margin-bottom:24px}
 document.getElementById('btn').addEventListener('click', run);
 document.getElementById('ti').addEventListener('keypress', function(e){ if(e.key==='Enter') run(); });
 
+function fmtVol(n) {
+  if (n >= 1e9) return (n/1e9).toFixed(2) + ' Mlr';
+  if (n >= 1e6) return (n/1e6).toFixed(2) + ' Mn';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + ' B';
+  return n;
+}
+
 async function run() {
   var t = document.getElementById('ti').value.trim().toUpperCase();
   if (!t) return;
@@ -53,6 +72,7 @@ async function run() {
     var d = await res.json();
     if (d.error) { r.innerHTML = '<p class="error">❌ ' + d.error + '</p>'; return; }
 
+    // EMA kutuları
     var maBoxes = d.mas.map(function(m) {
       var cls = m.above ? 'up' : 'down';
       var sign = m.diff >= 0 ? '+' : '';
@@ -65,6 +85,45 @@ async function run() {
       '</div>';
     }).join('');
 
+    // HACİM
+    var v = d.volume;
+
+    // 1. Hacim oranı
+    var ratioCls, ratioText, ratioDesc;
+    if (v.ratio >= 2) { ratioCls = 'purple'; ratioText = v.ratio + 'x 🔥'; ratioDesc = 'Bugünkü hacim 20 günlük ortalamanın ' + v.ratio + ' katı. Çok güçlü ilgi — önemli bir hareket olabilir.'; }
+    else if (v.ratio >= 1) { ratioCls = 'green'; ratioText = v.ratio + 'x ✅'; ratioDesc = 'Hacim ortalamanın üstünde. Harekete katılım sağlıklı.'; }
+    else { ratioCls = 'red'; ratioText = v.ratio + 'x 😴'; ratioDesc = 'Hacim ortalamanın altında. İlgi zayıf, hareketler güvenilmez olabilir.'; }
+
+    // 2. Fiyat + Hacim ilişkisi
+    var pvCls, pvText, pvDesc;
+    if (v.priceVolSignal === 'strong_up') { pvCls = 'green'; pvText = '📈 Güçlü Yükseliş'; pvDesc = 'Fiyat yükseliyor VE hacim yüksek. Alıcılar kararlı — sağlıklı yükseliş sinyali.'; }
+    else if (v.priceVolSignal === 'weak_up') { pvCls = 'yellow'; pvText = '⚠️ Zayıf Yükseliş'; pvDesc = 'Fiyat yükseliyor AMA hacim düşük. Yükseliş güvenilmez olabilir, teyit bekleyin.'; }
+    else if (v.priceVolSignal === 'strong_down') { pvCls = 'red'; pvText = '📉 Güçlü Düşüş'; pvDesc = 'Fiyat düşüyor VE hacim yüksek. Satıcılar baskın — dikkatli olun.'; }
+    else { pvCls = 'yellow'; pvText = '🔸 Zayıf Düşüş'; pvDesc = 'Fiyat düşüyor AMA hacim düşük. Panik satışı yok, dipten dönüş olabilir.'; }
+
+    // 3. Hacim trendi
+    var trCls, trText, trDesc;
+    if (v.trend === 'rising') { trCls = 'green'; trText = '↗️ Artıyor (+' + v.trendPct + '%)'; trDesc = 'Son 5 gün hacmi, 20 günlük ortalamadan yüksek. İlgi artıyor — bir hareket yaklaşıyor olabilir.'; }
+    else if (v.trend === 'falling') { trCls = 'red'; trText = '↘️ Azalıyor (' + v.trendPct + '%)'; trDesc = 'Son 5 gün hacmi düşüyor. İlgi azalıyor — hisse durgunlaşıyor.'; }
+    else { trCls = 'yellow'; trText = '→ Sabit (' + v.trendPct + '%)'; trDesc = 'Hacim ortalama seviyelerde, belirgin bir değişim yok.'; }
+
+    var volBoxes =
+      '<div class="vol-box ' + ratioCls + '">' +
+        '<div class="vol-label">Hacim Oranı</div>' +
+        '<div class="vol-main ' + ratioCls + '">' + ratioText + '</div>' +
+        '<div class="vol-desc">' + ratioDesc + '<br><br>Bugün: ' + fmtVol(v.current) + ' &nbsp;|&nbsp; 20G Ort: ' + fmtVol(v.avg20) + '</div>' +
+      '</div>' +
+      '<div class="vol-box ' + pvCls + '">' +
+        '<div class="vol-label">Fiyat + Hacim İlişkisi</div>' +
+        '<div class="vol-main ' + pvCls + '">' + pvText + '</div>' +
+        '<div class="vol-desc">' + pvDesc + '</div>' +
+      '</div>' +
+      '<div class="vol-box ' + trCls + '">' +
+        '<div class="vol-label">Hacim Trendi</div>' +
+        '<div class="vol-main ' + trCls + '">' + trText + '</div>' +
+        '<div class="vol-desc">' + trDesc + '</div>' +
+      '</div>';
+
     r.innerHTML =
       '<div class="price-header">' +
         '<div class="tk">📈 ' + d.ticker + '</div>' +
@@ -73,6 +132,10 @@ async function run() {
       '<div class="section">' +
         '<div class="section-title">Üstel Hareketli Ortalamalar (EMA) — Fiyatın EMA\'ya uzaklığı</div>' +
         '<div class="grid">' + maBoxes + '</div>' +
+      '</div>' +
+      '<div class="section">' +
+        '<div class="section-title">Hacim Analizi</div>' +
+        '<div class="grid">' + volBoxes + '</div>' +
       '</div>';
 
   } catch(e) {
