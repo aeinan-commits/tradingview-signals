@@ -1,77 +1,72 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BIST Analiz v2</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0f0f0f; color: #fff; font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
-    h1 { color: #f0b90b; text-align: center; margin-bottom: 24px; font-size: 1.4rem; }
-    .search { display: flex; gap: 10px; margin-bottom: 24px; }
-    .search input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #1a1a1a; color: #fff; font-size: 1rem; text-transform: uppercase; }
-    .search button { padding: 12px 20px; background: #f0b90b; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; }
-    .card { background: #1a1a1a; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
-    .card-title { color: #f0b90b; font-size: 1.1rem; font-weight: bold; margin-bottom: 16px; }
-    .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #2a2a2a; }
-    .row:last-child { border-bottom: none; }
-    .label { color: #aaa; font-size: 0.9rem; }
-    .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
-    .badge.green { background: #00c85322; color: #00c853; }
-    .badge.red { background: #ff444422; color: #ff4444; }
-    .badge.yellow { background: #f0b90b22; color: #f0b90b; }
-    .badge.purple { background: #9c27b022; color: #ce93d8; }
-    .value.green { color: #00c853; }
-    .value.red { color: #ff4444; }
-    .value.yellow { color: #f0b90b; }
-    .error { color: #ff4444; text-align: center; padding: 20px; }
-    .loading { color: #aaa; text-align: center; padding: 20px; }
-    #result { display: none; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BIST Analiz</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f0f0f;color:#fff;font-family:Arial,sans-serif;padding:20px;max-width:600px;margin:0 auto}
+h1{color:#f0b90b;text-align:center;margin-bottom:24px}
+.search{display:flex;gap:10px;margin-bottom:24px}
+.search input{flex:1;padding:12px;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#fff;font-size:1rem;text-transform:uppercase}
+.search button{padding:12px 20px;background:#f0b90b;color:#000;border:none;border-radius:8px;font-weight:bold;cursor:pointer}
+.card{background:#1a1a1a;border-radius:12px;padding:20px;margin-bottom:16px}
+.card-title{color:#f0b90b;font-weight:bold;margin-bottom:16px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #2a2a2a}
+.row:last-child{border-bottom:none}
+.label{color:#aaa;font-size:.9rem}
+.badge{padding:4px 10px;border-radius:20px;font-size:.8rem;font-weight:bold}
+.green{background:#00c85322;color:#00c853}
+.red{background:#ff444422;color:#ff4444}
+.yellow{background:#f0b90b22;color:#f0b90b}
+.purple{background:#9c27b022;color:#ce93d8}
+.vgreen{color:#00c853}
+.vred{color:#ff4444}
+.error{color:#ff4444;text-align:center;padding:20px}
+.loading{color:#aaa;text-align:center;padding:20px}
+#result{display:none}
+</style>
 </head>
 <body>
-  <h1>📊 BIST Analiz</h1>
-  <div class="search">
-    <input type="text" id="tickerInput" placeholder="Hisse kodu (örn: THYAO)" maxlength="10" />
-    <button onclick="analyze()">Analiz Et</button>
-  </div>
-  <div id="result"></div>
+<h1>📊 BIST Analiz</h1>
+<div class="search">
+<input type="text" id="ti" placeholder="Hisse kodu (örn: THYAO)" maxlength="10"/>
+<button id="btn">Analiz Et</button>
+</div>
+<div id="result"></div>
+<script>
+document.getElementById('btn').addEventListener('click', run);
+document.getElementById('ti').addEventListener('keypress', function(e){ if(e.key==='Enter') run(); });
 
-  <script>
-    document.getElementById('tickerInput').addEventListener('keypress', e => {
-      if (e.key === 'Enter') analyze();
-    });
-
-    async function analyze() {
-      const ticker = document.getElementById('tickerInput').value.trim().toUpperCase();
-      if (!ticker) return;
-
-      const result = document.getElementById('result');
-      result.style.display = 'block';
-      result.innerHTML = '<p class="loading">⏳ Veriler yükleniyor...</p>';
-
-      try {
-        const res = await fetch('/analyze/' + ticker);
-        const d = await res.json();
-
-        if (d.error) {
-          result.innerHTML = '<p class="error">❌ ' + d.error + '</p>';
-          return;
-        }
-
-        const rsiColor = d.rsi < 30 ? 'green' : d.rsi > 70 ? 'red' : 'yellow';
-        const rsiLabel = d.rsi < 30 ? 'Aşırı Satım' : d.rsi > 70 ? 'Aşırı Alım' : 'Normal';
-        const volColor = d.veryHighVolume ? 'purple' : d.highVolume ? 'green' : 'red';
-        const volLabel = d.veryHighVolume ? 'Çok Yüksek' : d.highVolume ? 'Yüksek' : 'Normal';
-
-        result.innerHTML =
-          '<div class="card">' +
-            '<div class="card-title">📈 ' + d.ticker + ' — ₺' + d.currentPrice + '</div>' +
-            '<div class="row"><span class="label">MA200 (' + d.ma200 + ')</span><span class="badge ' + (d.aboveMA200 ? 'green' : 'red') + '">' + (d.aboveMA200 ? '✅ Üstünde' : '❌ Altında') + '</span></div>' +
-            '<div class="row"><span class="label">MA50 (' + d.ma50 + ')</span><span class="badge ' + (d.aboveMA50 ? 'green' : 'red') + '">' + (d.aboveMA50 ? '✅ Üstünde' : '❌ Altında') + '</span></div>' +
-            '<div class="row"><span class="label">RSI (14)</span><span class="badge ' + rsiColor + '">' + d.rsi + ' — ' + rsiLabel + '</span></div>' +
-            '<div class="row"><span class="label">Hacim</span><span class="badge ' + volColor + '">' + volLabel + '</span></div>' +
-          '</div>' +
-          '<div class="card">' +
-            '<div class="card-title">🔍 Genel Değerlendirme</div>' +
-            '<div class="row"><span class="label">Trend</span><span class="value ' + (d.aboveMA200 ? 'green' : 'red')
+async function run() {
+  var t = document.getElementById('ti').value.trim().toUpperCase();
+  if (!t) return;
+  var r = document.getElementById('result');
+  r.style.display = 'block';
+  r.innerHTML = '<p class="loading">⏳ Yükleniyor...</p>';
+  try {
+    var res = await fetch('/analyze/' + t);
+    var d = await res.json();
+    if (d.error) { r.innerHTML = '<p class="error">❌ ' + d.error + '</p>'; return; }
+    var rc = d.rsi < 30 ? 'green' : d.rsi > 70 ? 'red' : 'yellow';
+    var rl = d.rsi < 30 ? 'Aşırı Satım' : d.rsi > 70 ? 'Aşırı Alım' : 'Normal';
+    var vc = d.veryHighVolume ? 'purple' : d.highVolume ? 'green' : 'red';
+    var vl = d.veryHighVolume ? 'Çok Yüksek' : d.highVolume ? 'Yüksek' : 'Normal';
+    r.innerHTML =
+      '<div class="card"><div class="card-title">📈 ' + d.ticker + ' — ₺' + d.currentPrice + '</div>' +
+      '<div class="row"><span class="label">MA200 (' + d.ma200 + ')</span><span class="badge ' + (d.aboveMA200?'green':'red') + '">' + (d.aboveMA200?'✅ Üstünde':'❌ Altında') + '</span></div>' +
+      '<div class="row"><span class="label">MA50 (' + d.ma50 + ')</span><span class="badge ' + (d.aboveMA50?'green':'red') + '">' + (d.aboveMA50?'✅ Üstünde':'❌ Altında') + '</span></div>' +
+      '<div class="row"><span class="label">RSI (14)</span><span class="badge ' + rc + '">' + d.rsi + ' — ' + rl + '</span></div>' +
+      '<div class="row"><span class="label">Hacim</span><span class="badge ' + vc + '">' + vl + '</span></div></div>' +
+      '<div class="card"><div class="card-title">🔍 Değerlendirme</div>' +
+      '<div class="row"><span class="label">Trend</span><span class="' + (d.aboveMA200?'vgreen':'vred') + '">' + (d.aboveMA200?'📈 Yükseliş':'📉 Düşüş') + '</span></div>' +
+      '<div class="row"><span class="label">Momentum</span><span class="' + (d.aboveMA50?'vgreen':'vred') + '">' + (d.aboveMA50?'💪 Güçlü':'⚠️ Zayıf') + '</span></div>' +
+      '<div class="row"><span class="label">Hacim</span><span class="' + (d.veryHighVolume?'yellow':d.highVolume?'vgreen':'vred') + '">' + (d.veryHighVolume?'🔥 Çok güçlü':d.highVolume?'✅ Yüksek':'😴 Düşük') + '</span></div></div>';
+  } catch(e) {
+    r.innerHTML = '<p class="error">❌ Hata: ' + e.message + '</p>';
+  }
+}
+</script>
+</body>
+</html>
