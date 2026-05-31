@@ -34,26 +34,7 @@ app.get('/analyze/:ticker', async (req, res) => {
       'Accept': 'application/json'
     };
 
-    // Adım 1: Cookie ve crumb al
-    let crumb = null;
-    let cookie = null;
-    try {
-      const cookieRes = await fetch('https://fc.yahoo.com', { headers });
-      const setCookie = cookieRes.headers.get('set-cookie');
-      if (setCookie) {
-        cookie = setCookie.split(';')[0];
-        console.log('Cookie:', cookie);
-      }
-      const crumbRes = await fetch('https://query2.finance.yahoo.com/v1/test/getcrumb', {
-        headers: { ...headers, 'Cookie': cookie || '' }
-      });
-      crumb = await crumbRes.text();
-      console.log('Crumb:', crumb);
-    } catch(e) {
-      console.log('Crumb hatası:', e.message);
-    }
-
-    // Adım 2: Chart verisi
+    // Chart verisi (teknik analiz)
     const chartRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`, { headers });
     const chartData = await chartRes.json();
 
@@ -85,26 +66,22 @@ app.get('/analyze/:ticker', async (req, res) => {
     const week52High = meta.fiftyTwoWeekHigh || null;
     const week52Low = meta.fiftyTwoWeekLow || null;
 
-    // Adım 3: Temel analiz (crumb ile)
+    // Temel analiz - v7 quote endpoint
     let pe = null, pb = null, marketCap = null, dividendYield = null;
     try {
-      const summaryUrl = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=defaultKeyStatistics,summaryDetail${crumb ? '&crumb=' + encodeURIComponent(crumb) : ''}`;
-      const summaryRes = await fetch(summaryUrl, {
-        headers: { ...headers, ...(cookie ? { 'Cookie': cookie } : {}) }
-      });
-      const summaryData = await summaryRes.json();
-      console.log('Summary:', JSON.stringify(summaryData).substring(0, 300));
+      const quoteRes = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`, { headers });
+      const quoteData = await quoteRes.json();
+      console.log('Quote v7:', JSON.stringify(quoteData).substring(0, 400));
 
-      if (summaryData.quoteSummary?.result?.[0]) {
-        const sd = summaryData.quoteSummary.result[0].summaryDetail;
-        const ks = summaryData.quoteSummary.result[0].defaultKeyStatistics;
-        pe = sd?.trailingPE?.raw || null;
-        pb = ks?.priceToBook?.raw || null;
-        marketCap = sd?.marketCap?.raw || null;
-        dividendYield = sd?.dividendYield?.raw || null;
+      const q = quoteData?.quoteResponse?.result?.[0];
+      if (q) {
+        pe = q.trailingPE || null;
+        pb = q.priceToBook || null;
+        marketCap = q.marketCap || null;
+        dividendYield = q.trailingAnnualDividendYield || null;
       }
     } catch(e) {
-      console.log('Summary hatası:', e.message);
+      console.log('Quote hatası:', e.message);
     }
 
     res.json({
