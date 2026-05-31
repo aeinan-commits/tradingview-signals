@@ -53,10 +53,7 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 .sig-desc{font-size:.85rem;color:#888;line-height:1.5}
 .div-row{margin-top:12px;padding-top:12px;border-top:1px solid #2a2a2a;font-size:.82rem;line-height:1.5}
 .div-tag{display:inline-block;padding:2px 9px;border-radius:6px;font-size:.72rem;font-weight:bold;margin-bottom:4px}
-.div-tag.bull{background:#00c85322;color:#00c853}
-.div-tag.bear{background:#ff444422;color:#ff4444}
-.div-tag.both{background:#9c27b022;color:#ce93d8}
-.div-tag.none{background:#33333388;color:#888}
+.div-tag.bull{background:#00c85322;color:#00c853}.div-tag.bear{background:#ff444422;color:#ff4444}.div-tag.both{background:#9c27b022;color:#ce93d8}.div-tag.none{background:#33333388;color:#888}
 .div-text{color:#888}
 .st-box{background:#1a1a1a;border-radius:12px;padding:22px;border-left:5px solid #333}
 .st-box.up{border-left-color:#00c853}.st-box.down{border-left-color:#ff4444}
@@ -111,29 +108,28 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 </div>
 <div id="result"></div>
 <script>
-var lastData = null, selectedPeriod = 'd1', selectedTF = '1d', currentTicker = '';
-var tfLabels = { '15m':'15 Dakikalık', '1h':'1 Saatlik', '4h':'4 Saatlik', '1d':'Günlük', '1wk':'Haftalık', '1mo':'Aylık' };
+var lastData=null, selectedPeriod='d1', selectedTF='1d', currentTicker='';
+var tfLabels={'15m':'15 Dakikalık','1h':'1 Saatlik','4h':'4 Saatlik','1d':'Günlük','1wk':'Haftalık','1mo':'Aylık'};
 
 document.getElementById('btn').addEventListener('click', function(){ run(); });
 document.getElementById('ti').addEventListener('keypress', function(e){ if(e.key==='Enter') run(); });
 document.querySelectorAll('.tf-bar button').forEach(function(b){
   b.addEventListener('click', function(){
-    selectedTF = b.getAttribute('data-tf');
-    document.querySelectorAll('.tf-bar button').forEach(function(x){ x.className = ''; });
-    b.className = 'active';
-    if (currentTicker) run(true);
+    selectedTF=b.getAttribute('data-tf');
+    document.querySelectorAll('.tf-bar button').forEach(function(x){ x.className=''; });
+    b.className='active';
+    if(currentTicker) run(true);
   });
 });
 
 function fmtVol(n){ if(n>=1e9)return(n/1e9).toFixed(2)+' Mlr'; if(n>=1e6)return(n/1e6).toFixed(2)+' Mn'; if(n>=1e3)return(n/1e3).toFixed(1)+' B'; return n; }
 
-// Uyumsuzluk satırı üretici
 function divRow(div, indName){
-  var tag, text;
-  if(div==='bullish'){ tag='<span class="div-tag bull">🟢 POZİTİF UYUMSUZLUK</span>'; text='Fiyat daha düşük dip yaparken '+indName+' daha yüksek dip yaptı. Düşüş gücünü kaybediyor — yukarı dönüş sinyali olabilir.'; }
-  else if(div==='bearish'){ tag='<span class="div-tag bear">🔴 NEGATİF UYUMSUZLUK</span>'; text='Fiyat daha yüksek tepe yaparken '+indName+' daha düşük tepe yaptı. Yükseliş gücünü kaybediyor — aşağı dönüş riski.'; }
-  else if(div==='both'){ tag='<span class="div-tag both">🟣 ÇİFT UYUMSUZLUK</span>'; text='Hem pozitif hem negatif uyumsuzluk izi var — kararsız/geçiş bölgesi, dikkatli olun.'; }
-  else { tag='<span class="div-tag none">UYUMSUZLUK YOK</span>'; text='Fiyat ve '+indName+' uyumlu hareket ediyor, belirgin bir uyumsuzluk tespit edilmedi.'; }
+  var tag,text;
+  if(div==='bullish'){tag='<span class="div-tag bull">🟢 POZİTİF UYUMSUZLUK</span>';text='Fiyat daha düşük dip yaparken '+indName+' daha yüksek dip yaptı. Düşüş gücünü kaybediyor — yukarı dönüş sinyali olabilir.';}
+  else if(div==='bearish'){tag='<span class="div-tag bear">🔴 NEGATİF UYUMSUZLUK</span>';text='Fiyat daha yüksek tepe yaparken '+indName+' daha düşük tepe yaptı. Yükseliş gücünü kaybediyor — aşağı dönüş riski.';}
+  else if(div==='both'){tag='<span class="div-tag both">🟣 ÇİFT UYUMSUZLUK</span>';text='Hem pozitif hem negatif uyumsuzluk izi var — kararsız/geçiş bölgesi, dikkatli olun.';}
+  else{tag='<span class="div-tag none">UYUMSUZLUK YOK</span>';text='Fiyat ve '+indName+' uyumlu hareket ediyor, belirgin bir uyumsuzluk tespit edilmedi.';}
   return '<div class="div-row">'+tag+'<div class="div-text">'+text+'</div></div>';
 }
 
@@ -169,20 +165,17 @@ async function run(keepTicker){
     if(d.error){ r.innerHTML='<p class="error">❌ '+d.error+'</p>'; return; }
     lastData=d;
 
-    // DESTEK / DİRENÇ
     var sr=d.supportResistance, srRows='';
     sr.resistances.slice().reverse().forEach(function(rz){ srRows+='<div class="sr-row"><span class="sr-tag res">DİRENÇ</span><span class="sr-level">₺'+rz.level+'</span><span class="sr-dist">+'+rz.dist+'% yukarıda</span><span class="sr-touch">'+rz.touches+' temas</span></div>'; });
     srRows+='<div class="sr-current-row"><div class="sr-row" style="padding:0"><span class="sr-tag cur">FİYAT</span><span class="sr-level">₺'+d.currentPrice+'</span><span class="sr-dist">şu anki fiyat</span></div></div>';
     sr.supports.forEach(function(sp){ srRows+='<div class="sr-row"><span class="sr-tag sup">DESTEK</span><span class="sr-level">₺'+sp.level+'</span><span class="sr-dist">'+sp.dist+'% aşağıda</span><span class="sr-touch">'+sp.touches+' temas</span></div>'; });
     var srBox='<div class="sr-wrap">'+srRows+'<hr class="sr-divider"><div class="vol-desc">"Temas" sayısı o seviyenin kaç kez test edildiğini gösterir — çok temas = güçlü seviye.</div></div>';
 
-    // EMA
     var maBoxes=d.mas.map(function(m){
       var cls=m.above?'up':'down', sign=m.diff>=0?'+':'', status=m.above?'Fiyat üstünde':'Fiyat altında';
       return '<div class="ma-box '+cls+'"><div class="ma-name">EMA'+m.period+'</div><div class="ma-value">₺'+m.value+'</div><div class="ma-diff '+cls+'">'+sign+m.diff+'%</div><div class="ma-status">'+status+'</div></div>';
     }).join('');
 
-    // HACİM
     var v=d.volume;
     var ratioCls,ratioText,ratioDesc;
     if(v.ratio>=2){ratioCls='purple';ratioText=v.ratio+'x 🔥';ratioDesc='Hacim ortalamanın '+v.ratio+' katı. Çok güçlü ilgi.';}
@@ -200,21 +193,18 @@ async function run(keepTicker){
     else if(v.obvSignal==='confirm_down'){obvCls='red';obvText='❌ Dağıtım';obvDesc='OBV düşüyor, fiyat da düşüyor. Para çıkışı düşüşü doğruluyor.';}
     else if(v.obvSignal==='bull_div'){obvCls='purple';obvText='🔼 Gizli Alım';obvDesc='Fiyat düşerken OBV yükseliyor! Pozitif uyumsuzluk eğilimi.';}
     else{obvCls='yellow';obvText='🔽 Gizli Satım';obvDesc='Fiyat yükselirken OBV düşüyor. Negatif uyumsuzluk eğilimi.';}
-    var obvDivHtml = divRow(d.volume.obvDivergence, 'OBV');
     var volBoxes=
       '<div class="vol-box '+ratioCls+'"><div class="vol-label">Hacim Oranı</div><div class="vol-main '+ratioCls+'">'+ratioText+'</div><div class="vol-desc">'+ratioDesc+'<br><br>Şimdi: '+fmtVol(v.current)+' | 20 Ort: '+fmtVol(v.avg20)+'</div></div>'+
       '<div class="vol-box" id="pvBox"></div>'+
       '<div class="vol-box '+trCls+'"><div class="vol-label">Hacim Trendi</div><div class="vol-main '+trCls+'">'+trText+'</div><div class="vol-desc">'+trDesc+'</div></div>'+
       '<div class="vol-box '+posCls2+'"><div class="vol-label">Son 50 Bar Hacim Konumu</div><div class="vol-main '+posCls2+'">%'+v.posPct+'</div><div class="bar-bg"><div class="bar-fill" style="width:'+v.posPct+'%;background:'+posBarColor+'"></div></div><div class="vol-desc">'+posDesc2+'<br>Zirve: '+fmtVol(v.max50)+'</div></div>'+
-      '<div class="vol-box '+obvCls+'"><div class="vol-label">OBV (Para Akışı)</div><div class="vol-main '+obvCls+'">'+obvText+'</div><div class="vol-desc">'+obvDesc+'</div>'+obvDivHtml+'</div>';
+      '<div class="vol-box '+obvCls+'"><div class="vol-label">OBV (Para Akışı)</div><div class="vol-main '+obvCls+'">'+obvText+'</div><div class="vol-desc">'+obvDesc+'</div>'+divRow(v.obvDivergence,'OBV')+'</div>';
 
-    // RSI
     var rsi=d.rsi, rsiCls,rsiLabel,rsiLabelColor,rsiDesc;
     if(rsi<30){rsiCls='#00c853';rsiLabel='Aşırı Satım';rsiLabelColor='#00c85322';rsiDesc='RSI 30 altında — hisse aşırı satılmış. Tepki/dönüş alımı gelebilir.';}
     else if(rsi>70){rsiCls='#ff4444';rsiLabel='Aşırı Alım';rsiLabelColor='#ff444422';rsiDesc='RSI 70 üstünde — hisse aşırı alınmış. Kâr satışı/düzeltme gelebilir.';}
     else{rsiCls='#f0b90b';rsiLabel='Nötr';rsiLabelColor='#f0b90b22';rsiDesc='RSI 30-70 arası nötr bölgede. Belirgin aşırılık yok.';}
-    var rsiDivHtml = divRow(d.rsiDivergence, 'RSI');
-    var rsiBox='<div class="rsi-box"><div class="rsi-top"><span class="rsi-val" style="color:'+rsiCls+'">'+rsi+'</span><span class="rsi-label" style="background:'+rsiLabelColor+';color:'+rsiCls+'">'+rsiLabel+'</span></div><div class="rsi-track"><div class="rsi-marker" style="left:'+rsi+'%"></div></div><div class="rsi-scale"><span>0</span><span>30</span><span>70</span><span>100</span></div><div class="rsi-desc">'+rsiDesc+'</div>'+rsiDivHtml+'</div>';
+    var rsiBox='<div class="rsi-box"><div class="rsi-top"><span class="rsi-val" style="color:'+rsiCls+'">'+rsi+'</span><span class="rsi-label" style="background:'+rsiLabelColor+';color:'+rsiCls+'">'+rsiLabel+'</span></div><div class="rsi-track"><div class="rsi-marker" style="left:'+rsi+'%"></div></div><div class="rsi-scale"><span>0</span><span>30</span><span>70</span><span>100</span></div><div class="rsi-desc">'+rsiDesc+'</div>'+divRow(d.rsiDivergence,'RSI')+'</div>';
     var sigBox;
     if(d.rsiSignal!==null){
       var above=d.rsiAboveSignal, sigCls=above?'green':'red', pct=d.rsiVsSignalPct>=0?'+'+d.rsiVsSignalPct:d.rsiVsSignalPct;
@@ -222,26 +212,37 @@ async function run(keepTicker){
       sigBox='<div class="sig-box '+sigCls+'"><div class="sig-label">RSI vs 9 Bar Ortalaması</div><div class="sig-main '+sigCls+'">'+(above?'▲ Üstünde':'▼ Altında')+'</div><div class="sig-sub">RSI: '+rsi+' | 9B Ort: '+d.rsiSignal+' ('+pct+'%)</div><div class="sig-desc">'+sigDesc+'</div></div>';
     } else { sigBox='<div class="sig-box"><div class="sig-label">RSI Sinyal Çizgisi</div><div class="sig-desc">Yeterli veri yok</div></div>'; }
 
-    // MOMENTUM
     var momBoxes='';
     if(d.momentum){
-      var mo=d.momentum;
-      var moSigCls,moSigTitle,moSigDesc;
-      if(mo.signal==='strong_up'){moSigCls='green';moSigTitle='📈 Güçlü Pozitif';moSigDesc='Momentum sıfırın üstünde ve artıyor. Fiyat son 10 bara göre hızlanarak yükseliyor.';}
+      var mo=d.momentum, moSigCls,moSigTitle,moSigDesc;
+      if(mo.signal==='strong_up'){moSigCls='green';moSigTitle='📈 Güçlü Pozitif';moSigDesc='Momentum sıfırın üstünde ve artıyor. Fiyat hızlanarak yükseliyor.';}
       else if(mo.signal==='weak_up'){moSigCls='yellow';moSigTitle='⚠️ Zayıflayan Pozitif';moSigDesc='Momentum sıfırın üstünde ama ivme azalıyor. Yükseliş güç kaybediyor.';}
       else if(mo.signal==='strong_down'){moSigCls='red';moSigTitle='📉 Güçlü Negatif';moSigDesc='Momentum sıfırın altında ve düşüyor. Fiyat hızlanarak geriliyor.';}
-      else{moSigCls='yellow';moSigTitle='🔸 Zayıflayan Negatif';moSigDesc='Momentum sıfırın altında ama düşüş ivmesi azalıyor. Toparlanma başlangıcı olabilir.';}
-      var momDivHtml = divRow(mo.divergence, 'Momentum');
-      var moSmaCls=mo.aboveSMA?'green':'red';
-      var moSmaTitle=mo.aboveSMA?'▲ Ortalamanın Üstünde':'▼ Ortalamanın Altında';
+      else{moSigCls='yellow';moSigTitle='🔸 Zayıflayan Negatif';moSigDesc='Momentum sıfırın altında ama düşüş ivmesi azalıyor. Toparlanma olabilir.';}
+      var moSmaCls=mo.aboveSMA?'green':'red', moSmaTitle=mo.aboveSMA?'▲ Ortalamanın Üstünde':'▼ Ortalamanın Altında';
       var pctTxt=(mo.vsSMApct>=0?'+':'')+mo.vsSMApct+'%';
-      var moSmaDesc=mo.aboveSMA?'Momentum, 15 barlık ortalamasının üstünde. İvme hızlanıyor, trend tazeleniyor.':'Momentum, 15 barlık ortalamasının altında. İvme yavaşlıyor, trend güç yitiriyor.';
+      var moSmaDesc=mo.aboveSMA?'Momentum 15 barlık ortalamasının üstünde. İvme hızlanıyor.':'Momentum 15 barlık ortalamasının altında. İvme yavaşlıyor.';
       momBoxes=
-        '<div class="sig-box '+moSigCls+'"><div class="sig-label">Momentum (10 Bar)</div><div class="sig-main '+moSigCls+'">'+moSigTitle+'</div><div class="sig-sub">Değer: '+(mo.value>=0?'+':'')+mo.value+' '+(mo.positive?'(sıfır üstü)':'(sıfır altı)')+'</div><div class="sig-desc">'+moSigDesc+'</div>'+momDivHtml+'</div>'+
+        '<div class="sig-box '+moSigCls+'"><div class="sig-label">Momentum (10 Bar)</div><div class="sig-main '+moSigCls+'">'+moSigTitle+'</div><div class="sig-sub">Değer: '+(mo.value>=0?'+':'')+mo.value+' '+(mo.positive?'(sıfır üstü)':'(sıfır altı)')+'</div><div class="sig-desc">'+moSigDesc+'</div>'+divRow(mo.divergence,'Momentum')+'</div>'+
         '<div class="sig-box '+moSmaCls+'"><div class="sig-label">Momentum vs 15 Bar Ortalaması</div><div class="sig-main '+moSmaCls+'">'+moSmaTitle+'</div><div class="sig-sub">Momentum: '+(mo.value>=0?'+':'')+mo.value+' | 15B Ort: '+(mo.sma>=0?'+':'')+mo.sma+' ('+pctTxt+')</div><div class="sig-desc">'+moSmaDesc+'</div></div>';
     } else { momBoxes='<div class="sig-box"><div class="sig-label">Momentum</div><div class="sig-desc">Yeterli veri yok</div></div>'; }
 
-    // SUPERTREND
+    // CCI
+    var cciBoxes='';
+    if(d.cci){
+      var cc=d.cci, cSigCls,cSigTitle,cSigDesc;
+      if(cc.signal==='strong_up'){cSigCls='green';cSigTitle='📈 Güçlü (+100 üstü)';cSigDesc='CCI +100 üzerinde — güçlü yukarı momentum. Trend yukarı yönlü ve güçlü; aşırı alım bölgesine de işaret edebilir.';}
+      else if(cc.signal==='mild_up'){cSigCls='yellow';cSigTitle='🔸 Hafif Pozitif (0/+100)';cSigDesc='CCI sıfır ile +100 arasında — fiyat ortalamasının üstünde ama momentum henüz güçlü değil. Yükseliş eğilimi var.';}
+      else if(cc.signal==='strong_down'){cSigCls='red';cSigTitle='📉 Güçlü (-100 altı)';cSigDesc='CCI -100 altında — güçlü aşağı momentum. Trend aşağı yönlü; aşırı satım bölgesine de işaret edebilir.';}
+      else{cSigCls='yellow';cSigTitle='🔸 Hafif Negatif (0/-100)';cSigDesc='CCI sıfır ile -100 arasında — fiyat ortalamasının altında ama düşüş momentumu zayıf. Dikkatli izleyin.';}
+      var ccSmaCls=cc.aboveSMA?'green':'red', ccSmaTitle=cc.aboveSMA?'▲ Ortalamanın Üstünde':'▼ Ortalamanın Altında';
+      var ccPct=(cc.vsSMApct>=0?'+':'')+cc.vsSMApct+'%';
+      var ccSmaDesc=cc.aboveSMA?'CCI, 14 barlık ortalamasının üstünde. Momentum hızlanıyor — kısa vadeli güç artışı.':'CCI, 14 barlık ortalamasının altında. Momentum yavaşlıyor — kısa vadeli zayıflama.';
+      cciBoxes=
+        '<div class="sig-box '+cSigCls+'"><div class="sig-label">CCI (20) Standart Sinyal</div><div class="sig-main '+cSigCls+'">'+cSigTitle+'</div><div class="sig-sub">CCI Değeri: '+(cc.value>=0?'+':'')+cc.value+'</div><div class="sig-desc">'+cSigDesc+'</div>'+divRow(cc.divergence,'CCI')+'</div>'+
+        '<div class="sig-box '+ccSmaCls+'"><div class="sig-label">CCI vs 14 Bar Ortalaması</div><div class="sig-main '+ccSmaCls+'">'+ccSmaTitle+'</div><div class="sig-sub">CCI: '+(cc.value>=0?'+':'')+cc.value+' | 14B Ort: '+(cc.sma>=0?'+':'')+cc.sma+' ('+ccPct+')</div><div class="sig-desc">'+ccSmaDesc+'</div></div>';
+    } else { cciBoxes='<div class="sig-box"><div class="sig-label">CCI</div><div class="sig-desc">Yeterli veri yok</div></div>'; }
+
     var stBox='';
     if(d.supertrend){
       var st=d.supertrend, up=st.direction==='up', stCls=up?'up':'down';
@@ -250,7 +251,6 @@ async function run(keepTicker){
       stBox='<div class="st-box '+stCls+'"><div class="st-top"><span class="st-main '+stCls+'">'+stMain+'</span><span class="st-sub">Çizgi: ₺'+st.value+' ('+stDist+'% mesafe) | ATR: '+st.atr+'</span></div><div class="st-desc">'+stDesc+'</div></div>';
     }
 
-    // ICHIMOKU
     var ichBox='';
     if(d.ichimoku){
       var ic=d.ichimoku, posCls=ic.pricePos, posMain, posVerdict;
@@ -273,6 +273,7 @@ async function run(keepTicker){
       '<div class="section"><div class="section-title"><span>Hacim Analizi</span><div class="period-btns"><button id="pb_d1" onclick="setPeriod(\'d1\')">1 Bar</button><button id="pb_d5" onclick="setPeriod(\'d5\')">5 Bar</button><button id="pb_d20" onclick="setPeriod(\'d20\')">20 Bar</button></div></div><div class="grid">'+volBoxes+'</div></div>'+
       '<div class="section"><div class="section-title">RSI (14) — Göreceli Güç Endeksi</div><div class="grid">'+rsiBox+sigBox+'</div></div>'+
       '<div class="section"><div class="section-title">Momentum (10) + 15 Bar Ortalaması</div><div class="grid">'+momBoxes+'</div></div>'+
+      '<div class="section"><div class="section-title">CCI (20) + 14 Bar Ortalaması</div><div class="grid">'+cciBoxes+'</div></div>'+
       '<div class="section"><div class="section-title">Supertrend — Trend Yönü</div>'+stBox+'</div>'+
       '<div class="section"><div class="section-title">Ichimoku Bulutu — Kapsamlı Trend Analizi</div>'+ichBox+'</div>';
 
