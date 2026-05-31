@@ -58,7 +58,7 @@ async function run() {
       var sign = m.diff >= 0 ? '+' : '';
       var status = m.above ? 'Fiyat üstünde' : 'Fiyat altında';
       return '<div class="ma-box ' + cls + '">' +
-        '<div class="ma-name">MA' + m.period + '</div>' +
+        '<div class="ma-name">EMA' + m.period + '</div>' +
         '<div class="ma-value">₺' + m.value + '</div>' +
         '<div class="ma-diff ' + cls + '">' + sign + m.diff + '%</div>' +
         '<div class="ma-status">' + status + '</div>' +
@@ -71,7 +71,7 @@ async function run() {
         '<div class="pr">₺' + d.currentPrice + '</div>' +
       '</div>' +
       '<div class="section">' +
-        '<div class="section-title">Hareketli Ortalamalar (Fiyatın MA\'ya uzaklığı)</div>' +
+        '<div class="section-title">Üstel Hareketli Ortalamalar (EMA) — Fiyatın EMA\'ya uzaklığı</div>' +
         '<div class="grid">' + maBoxes + '</div>' +
       '</div>';
 
