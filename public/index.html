@@ -3,50 +3,88 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TradingView Sinyaller</title>
+  <title>BIST Analiz</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0f0f0f; color: #fff; font-family: Arial, sans-serif; padding: 20px; }
-    h1 { color: #f0b90b; text-align: center; margin-bottom: 20px; font-size: 1.4rem; }
-    #signals { display: flex; flex-direction: column; gap: 12px; }
-    .signal {
-      background: #1a1a1a;
-      border-left: 4px solid #f0b90b;
-      border-radius: 8px;
-      padding: 14px;
+    body { background: #0f0f0f; color: #fff; font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
+    h1 { color: #f0b90b; text-align: center; margin-bottom: 24px; font-size: 1.4rem; }
+    .search { display: flex; gap: 10px; margin-bottom: 24px; }
+    .search input {
+      flex: 1; padding: 12px; border-radius: 8px;
+      border: 1px solid #333; background: #1a1a1a;
+      color: #fff; font-size: 1rem; text-transform: uppercase;
     }
-    .ticker { font-size: 1.2rem; font-weight: bold; color: #f0b90b; }
-    .price { font-size: 1rem; color: #00c853; margin-top: 4px; }
-    .message { font-size: 0.85rem; color: #aaa; margin-top: 4px; }
-    .time { font-size: 0.75rem; color: #555; margin-top: 6px; }
-    .empty { text-align: center; color: #555; margin-top: 60px; font-size: 0.95rem; }
+    .search button {
+      padding: 12px 20px; background: #f0b90b; color: #000;
+      border: none; border-radius: 8px; font-weight: bold;
+      cursor: pointer; font-size: 1rem;
+    }
+    .search button:hover { background: #d4a009; }
+    .card { background: #1a1a1a; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .card-title { color: #f0b90b; font-size: 1.1rem; font-weight: bold; margin-bottom: 16px; }
+    .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #2a2a2a; }
+    .row:last-child { border-bottom: none; }
+    .label { color: #aaa; font-size: 0.9rem; }
+    .value { font-size: 0.95rem; font-weight: bold; }
+    .green { color: #00c853; }
+    .red { color: #ff4444; }
+    .yellow { color: #f0b90b; }
+    .badge {
+      padding: 4px 10px; border-radius: 20px;
+      font-size: 0.8rem; font-weight: bold;
+    }
+    .badge.green { background: #00c85322; color: #00c853; }
+    .badge.red { background: #ff444422; color: #ff4444; }
+    .badge.purple { background: #9c27b022; color: #ce93d8; }
+    .error { color: #ff4444; text-align: center; padding: 20px; }
+    .loading { color: #aaa; text-align: center; padding: 20px; }
+    #result { display: none; }
   </style>
 </head>
 <body>
-  <h1>📡 TradingView Sinyaller</h1>
-  <div id="signals"><p class="empty">Henüz sinyal gelmedi...</p></div>
+  <h1>📊 BIST Analiz</h1>
+
+  <div class="search">
+    <input type="text" id="tickerInput" placeholder="Hisse kodu (örn: THYAO)" maxlength="10" />
+    <button onclick="analyze()">Analiz Et</button>
+  </div>
+
+  <div id="result"></div>
 
   <script>
-    async function fetchSignals() {
-      const res = await fetch('/signals');
-      const data = await res.json();
-      const container = document.getElementById('signals');
-      if (data.length === 0) {
-        container.innerHTML = '<p class="empty">Henüz sinyal gelmedi...</p>';
-        return;
-      }
-      container.innerHTML = data.map(s => `
-        <div class="signal">
-          <div class="ticker">📈 ${s.ticker}</div>
-          <div class="price">💰 ${s.price}</div>
-          <div class="message">${s.message}</div>
-          <div class="time">🕐 ${s.time}</div>
-        </div>
-      `).join('');
-    }
+    document.getElementById('tickerInput').addEventListener('keypress', e => {
+      if (e.key === 'Enter') analyze();
+    });
 
-    fetchSignals();
-    setInterval(fetchSignals, 10000); // Her 10 saniyede güncelle
-  </script>
-</body>
-</html>
+    async function analyze() {
+      const ticker = document.getElementById('tickerInput').value.trim().toUpperCase();
+      if (!ticker) return;
+
+      const result = document.getElementById('result');
+      result.style.display = 'block';
+      result.innerHTML = '<p class="loading">⏳ Veriler yükleniyor...</p>';
+
+      try {
+        const res = await fetch(`/analyze/${ticker}`);
+        const d = await res.json();
+
+        if (d.error) {
+          result.innerHTML = `<p class="error">❌ ${d.error}</p>`;
+          return;
+        }
+
+        const rsiColor = d.rsi < 30 ? 'green' : d.rsi > 70 ? 'red' : 'yellow';
+        const rsiLabel = d.rsi < 30 ? 'Aşırı Satım' : d.rsi > 70 ? 'Aşırı Alım' : 'Normal';
+        const volLabel = d.veryHighVolume ? 'Çok Yüksek' : d.highVolume ? 'Yüksek' : 'Normal';
+        const volColor = d.veryHighVolume ? 'purple' : d.highVolume ? 'green' : 'red';
+
+        result.innerHTML = `
+          <div class="card">
+            <div class="card-title">📈 ${d.ticker} — ₺${d.currentPrice}</div>
+            <div class="row">
+              <span class="label">MA200 (${d.ma200})</span>
+              <span class="badge ${d.aboveMA200 ? 'green' : 'red'}">${d.aboveMA200 ? '✅ Üstünde' : '❌ Altında'}</span>
+            </div>
+            <div class="row">
+              <span class="label">MA50 (${d.ma50})</span>
+              <span class="badge ${d.aboveMA50 ? 'green' : 'red'}">${d.aboveMA50 ? '✅ Üstünde' : '❌ Altında'}</span>
