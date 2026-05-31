@@ -26,10 +26,14 @@ app.get('/signals', (req, res) => {
   res.json(signals);
 });
 
-function sma(arr, period) {
+function ema(arr, period) {
   if (arr.length < period) period = arr.length;
-  const slice = arr.slice(-period);
-  return slice.reduce((a, b) => a + b, 0) / slice.length;
+  const k = 2 / (period + 1);
+  let emaVal = arr.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < arr.length; i++) {
+    emaVal = arr[i] * k + emaVal * (1 - k);
+  }
+  return emaVal;
 }
 
 app.get('/analyze/:ticker', async (req, res) => {
@@ -56,10 +60,10 @@ app.get('/analyze/:ticker', async (req, res) => {
     const currentPrice = closes[closes.length - 1];
     const currentVol = vols[vols.length - 1];
 
-    // Hareketli ortalamalar
+    // Üstel hareketli ortalamalar (EMA)
     const periods = [5, 20, 50, 100, 200];
     const mas = periods.map(p => {
-      const value = sma(closes, p);
+      const value = ema(closes, p);
       const diff = ((currentPrice - value) / value) * 100;
       return {
         period: p,
