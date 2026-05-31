@@ -22,9 +22,7 @@ app.post('/webhook', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.get('/signals', (req, res) => {
-  res.json(signals);
-});
+app.get('/signals', (req, res) => { res.json(signals); });
 
 function ema(arr, period) {
   if (arr.length < period) period = arr.length;
@@ -51,29 +49,37 @@ function calcRSISeries(closes, period) {
     avgLoss = (avgLoss * (period - 1) + l) / period;
     rsiArr[i] = 100 - (100 / (1 + avgGain / (avgLoss || 0.0001)));
   }
-  // Baştaki undefined'ları null ile doldur ki indeksler closes ile hizalı kalsın
   for (let i = 0; i < period; i++) if (rsiArr[i] === undefined) rsiArr[i] = null;
   return rsiArr;
 }
 
 function calcMomentumSeriesAligned(closes, period) {
-  // closes ile aynı uzunlukta, ilk 'period' eleman null
   const mom = [];
-  for (let i = 0; i < closes.length; i++) {
-    mom[i] = i < period ? null : closes[i] - closes[i - period];
-  }
+  for (let i = 0; i < closes.length; i++) mom[i] = i < period ? null : closes[i] - closes[i - period];
   return mom;
 }
 
-// UYUMSUZLUK (divergence) tespiti
-// priceArr: fiyat (kapanış), indArr: gösterge serisi (closes ile hizalı, null olabilir)
+// CCI serisi (closes ile hizalı, ilk değerler null)
+function calcCCISeries(highs, lows, closes, period) {
+  const n = closes.length;
+  const tp = [];
+  for (let i = 0; i < n; i++) tp[i] = (highs[i] + lows[i] + closes[i]) / 3;
+  const cci = [];
+  for (let i = 0; i < n; i++) {
+    if (i < period - 1) { cci[i] = null; continue; }
+    const slice = tp.slice(i - period + 1, i + 1);
+    const sma = slice.reduce((a, b) => a + b, 0) / period;
+    const meanDev = slice.reduce((a, b) => a + Math.abs(b - sma), 0) / period;
+    cci[i] = meanDev === 0 ? 0 : (tp[i] - sma) / (0.015 * meanDev);
+  }
+  return cci;
+}
+
 function detectDivergence(priceArr, indArr, lookback) {
   const n = priceArr.length;
   const start = Math.max(1, n - lookback);
-  const win = 2; // pivot penceresi
-
-  const highs = []; // {idx, price, ind}
-  const lows = [];
+  const win = 2;
+  const highs = [], lows = [];
   for (let i = start + win; i < n - win; i++) {
     if (indArr[i] === null || indArr[i] === undefined) continue;
     let isHigh = true, isLow = true;
@@ -84,22 +90,15 @@ function detectDivergence(priceArr, indArr, lookback) {
     if (isHigh) highs.push({ idx: i, price: priceArr[i], ind: indArr[i] });
     if (isLow) lows.push({ idx: i, price: priceArr[i], ind: indArr[i] });
   }
-
   let result = 'none';
-
-  // Negatif (bearish): son iki tepe - fiyat yükselen, gösterge alçalan
   if (highs.length >= 2) {
     const a = highs[highs.length - 2], b = highs[highs.length - 1];
     if (b.price > a.price && b.ind < a.ind) result = 'bearish';
   }
-  // Pozitif (bullish): son iki dip - fiyat alçalan, gösterge yükselen
   if (lows.length >= 2) {
     const a = lows[lows.length - 2], b = lows[lows.length - 1];
-    if (b.price < a.price && b.ind > a.ind) {
-      result = (result === 'bearish') ? 'both' : 'bullish';
-    }
+    if (b.price < a.price && b.ind > a.ind) result = (result === 'bearish') ? 'both' : 'bullish';
   }
-
   return result;
 }
 
@@ -218,27 +217,18 @@ app.get('/analyze/:ticker', async (req, res) => {
     const tickerClean = req.params.ticker.toUpperCase();
     const tf = req.query.tf || '1d';
     const cfg = TF_CONFIG[tf] || TF_CONFIG['1d'];
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'application/json'
-    };
+    const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
 
     const chartRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=${cfg.interval}&range=${cfg.range}&events=div%2Csplit`, { headers });
     const chartData = await chartRes.json();
-    if (!chartData.chart || !chartData.chart.result || !chartData.chart.result[0]) {
-      return res.status(500).json({ error: 'Hisse bulunamadı: ' + ticker });
-    }
+    if (!chartData.chart || !chartData.chart.result || !chartData.chart.result[0]) return res.status(500).json({ error: 'Hisse bulunamadı: ' + ticker });
 
     const quote = chartData.chart.result[0].indicators.quote[0];
-    let valid = quote.close.map((p, i) => ({ p, v: quote.volume[i], h: quote.high[i], l: quote.low[i] }))
-      .filter(x => x.p !== null && x.v !== null && x.h !== null && x.l !== null);
+    let valid = quote.close.map((p, i) => ({ p, v: quote.volume[i], h: quote.high[i], l: quote.low[i] })).filter(x => x.p !== null && x.v !== null && x.h !== null && x.l !== null);
     let closes = valid.map(x => x.p), vols = valid.map(x => x.v), highs = valid.map(x => x.h), lows = valid.map(x => x.l);
 
-    if (cfg.resample) {
-      const r = resampleTo4h(closes, vols, highs, lows);
-      closes = r.closes; vols = r.vols; highs = r.highs; lows = r.lows;
-    }
-    if (closes.length < 30) return res.status(500).json({ error: 'Bu zaman dilimi için yeterli veri yok' });
+    if (cfg.resample) { const r = resampleTo4h(closes, vols, highs, lows); closes = r.closes; vols = r.vols; highs = r.highs; lows = r.lows; }
+    if (closes.length < 35) return res.status(500).json({ error: 'Bu zaman dilimi için yeterli veri yok' });
 
     const currentPrice = closes[closes.length - 1];
     const currentVol = vols[vols.length - 1];
@@ -250,7 +240,6 @@ app.get('/analyze/:ticker', async (req, res) => {
       return { period: p, value: parseFloat(value.toFixed(2)), above: currentPrice > value, diff: parseFloat(diff.toFixed(2)) };
     });
 
-    // RSI (hizalı seri)
     const rsiSeriesAligned = calcRSISeries(closes, 14);
     const rsiVals = rsiSeriesAligned.filter(x => x !== null);
     const rsi = rsiVals[rsiVals.length - 1];
@@ -277,8 +266,32 @@ app.get('/analyze/:ticker', async (req, res) => {
       else if (momNow > 0 && momNow <= momPrev) signal = 'weak_up';
       else if (momNow < 0 && momNow < momPrev) signal = 'strong_down';
       else signal = 'weak_down';
-      const momDiv = detectDivergence(closes, momAligned, 40);
-      momentum = { value: parseFloat(momNow.toFixed(2)), sma: parseFloat(momSMA.toFixed(2)), aboveSMA, vsSMApct: parseFloat(vsSMApct.toFixed(1)), signal, positive: momNow > 0, divergence: momDiv };
+      momentum = { value: parseFloat(momNow.toFixed(2)), sma: parseFloat(momSMA.toFixed(2)), aboveSMA, vsSMApct: parseFloat(vsSMApct.toFixed(1)), signal, positive: momNow > 0, divergence: detectDivergence(closes, momAligned, 40) };
+    }
+
+    // CCI (20) + 14 barlık SMA
+    let cci = null;
+    const cciAligned = calcCCISeries(highs, lows, closes, 20);
+    const cciVals = cciAligned.filter(x => x !== null);
+    if (cciVals.length >= 14) {
+      const cciNow = cciVals[cciVals.length - 1];
+      const cciSMA = cciVals.slice(-14).reduce((a, b) => a + b, 0) / 14;
+      const aboveSMA = cciNow > cciSMA;
+      const vsSMApct = cciSMA !== 0 ? ((cciNow - cciSMA) / Math.abs(cciSMA)) * 100 : 0;
+      // Standart sinyal: ±100 bandı
+      let signal;
+      if (cciNow > 100) signal = 'strong_up';
+      else if (cciNow > 0) signal = 'mild_up';
+      else if (cciNow < -100) signal = 'strong_down';
+      else signal = 'mild_down';
+      cci = {
+        value: parseFloat(cciNow.toFixed(1)),
+        sma: parseFloat(cciSMA.toFixed(1)),
+        aboveSMA,
+        vsSMApct: parseFloat(vsSMApct.toFixed(1)),
+        signal,
+        divergence: detectDivergence(closes, cciAligned, 40)
+      };
     }
 
     const supertrend = calcSupertrend(highs, lows, closes, 10, 3);
@@ -293,7 +306,6 @@ app.get('/analyze/:ticker', async (req, res) => {
     const max50Vol = Math.max(...vols.slice(-50));
     const volPosPct = (currentVol / max50Vol) * 100;
 
-    // OBV (hizalı seri)
     let obv = 0; const obvSeries = [0];
     for (let i = 1; i < closes.length; i++) {
       if (closes[i] > closes[i - 1]) obv += vols[i];
@@ -317,7 +329,7 @@ app.get('/analyze/:ticker', async (req, res) => {
       rsiSignal: rsiSignal !== null ? parseFloat(rsiSignal.toFixed(1)) : null,
       rsiAboveSignal, rsiVsSignalPct: rsiVsSignalPct !== null ? parseFloat(rsiVsSignalPct.toFixed(2)) : null,
       rsiDivergence: rsiDiv,
-      momentum, supertrend, ichimoku,
+      momentum, cci, supertrend, ichimoku,
       volume: { current: currentVol, avg20: Math.round(avgVol20), avg5: Math.round(avgVol5), ratio: parseFloat(volRatio.toFixed(2)), priceVol, trend: volTrend, trendPct: parseFloat(volTrendPct.toFixed(1)), posPct: parseFloat(volPosPct.toFixed(0)), max50: Math.round(max50Vol), obvSignal, obvRising, obvDivergence: obvDiv },
       supportResistance: sr
     });
