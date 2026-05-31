@@ -42,27 +42,65 @@ function calcRSISeries(closes, period) {
     const diff = closes[i] - closes[i - 1];
     if (diff > 0) gains += diff; else losses += Math.abs(diff);
   }
-  let avgGain = gains / period;
-  let avgLoss = losses / period;
+  let avgGain = gains / period, avgLoss = losses / period;
   rsiArr[period] = 100 - (100 / (1 + avgGain / (avgLoss || 0.0001)));
   for (let i = period + 1; i < closes.length; i++) {
     const diff = closes[i] - closes[i - 1];
-    const g = diff > 0 ? diff : 0;
-    const l = diff < 0 ? Math.abs(diff) : 0;
+    const g = diff > 0 ? diff : 0, l = diff < 0 ? Math.abs(diff) : 0;
     avgGain = (avgGain * (period - 1) + g) / period;
     avgLoss = (avgLoss * (period - 1) + l) / period;
     rsiArr[i] = 100 - (100 / (1 + avgGain / (avgLoss || 0.0001)));
   }
-  return rsiArr.filter(x => x !== undefined && x !== null);
+  // Baştaki undefined'ları null ile doldur ki indeksler closes ile hizalı kalsın
+  for (let i = 0; i < period; i++) if (rsiArr[i] === undefined) rsiArr[i] = null;
+  return rsiArr;
 }
 
-// Momentum (fiyat - N bar önceki fiyat) serisi
-function calcMomentumSeries(closes, period) {
+function calcMomentumSeriesAligned(closes, period) {
+  // closes ile aynı uzunlukta, ilk 'period' eleman null
   const mom = [];
-  for (let i = period; i < closes.length; i++) {
-    mom.push(closes[i] - closes[i - period]);
+  for (let i = 0; i < closes.length; i++) {
+    mom[i] = i < period ? null : closes[i] - closes[i - period];
   }
   return mom;
+}
+
+// UYUMSUZLUK (divergence) tespiti
+// priceArr: fiyat (kapanış), indArr: gösterge serisi (closes ile hizalı, null olabilir)
+function detectDivergence(priceArr, indArr, lookback) {
+  const n = priceArr.length;
+  const start = Math.max(1, n - lookback);
+  const win = 2; // pivot penceresi
+
+  const highs = []; // {idx, price, ind}
+  const lows = [];
+  for (let i = start + win; i < n - win; i++) {
+    if (indArr[i] === null || indArr[i] === undefined) continue;
+    let isHigh = true, isLow = true;
+    for (let j = 1; j <= win; j++) {
+      if (priceArr[i] <= priceArr[i - j] || priceArr[i] <= priceArr[i + j]) isHigh = false;
+      if (priceArr[i] >= priceArr[i - j] || priceArr[i] >= priceArr[i + j]) isLow = false;
+    }
+    if (isHigh) highs.push({ idx: i, price: priceArr[i], ind: indArr[i] });
+    if (isLow) lows.push({ idx: i, price: priceArr[i], ind: indArr[i] });
+  }
+
+  let result = 'none';
+
+  // Negatif (bearish): son iki tepe - fiyat yükselen, gösterge alçalan
+  if (highs.length >= 2) {
+    const a = highs[highs.length - 2], b = highs[highs.length - 1];
+    if (b.price > a.price && b.ind < a.ind) result = 'bearish';
+  }
+  // Pozitif (bullish): son iki dip - fiyat alçalan, gösterge yükselen
+  if (lows.length >= 2) {
+    const a = lows[lows.length - 2], b = lows[lows.length - 1];
+    if (b.price < a.price && b.ind > a.ind) {
+      result = (result === 'bearish') ? 'both' : 'bullish';
+    }
+  }
+
+  return result;
 }
 
 function calcSupertrend(highs, lows, closes, period, mult) {
@@ -76,8 +114,7 @@ function calcSupertrend(highs, lows, closes, period, mult) {
   let trendDir = 1, finalUpper = 0, finalLower = 0, prevUpper = 0, prevLower = 0, supertrendVal = 0;
   for (let i = period; i < n; i++) {
     const hl2 = (highs[i] + lows[i]) / 2;
-    const basicUpper = hl2 + mult * atr[i];
-    const basicLower = hl2 - mult * atr[i];
+    const basicUpper = hl2 + mult * atr[i], basicLower = hl2 - mult * atr[i];
     finalUpper = (basicUpper < prevUpper || closes[i - 1] > prevUpper) ? basicUpper : prevUpper;
     finalLower = (basicLower > prevLower || closes[i - 1] < prevLower) ? basicLower : prevLower;
     if (i === period) trendDir = closes[i] > hl2 ? 1 : -1;
@@ -101,24 +138,17 @@ function calcIchimoku(highs, lows, closes) {
   const senkouA = (tenkan + kijun) / 2;
   const senkouB = (Math.max(...highs.slice(n - 52)) + Math.min(...lows.slice(n - 52))) / 2;
   const currentPrice = closes[n - 1];
-  const cloudTop = Math.max(senkouA, senkouB);
-  const cloudBottom = Math.min(senkouA, senkouB);
+  const cloudTop = Math.max(senkouA, senkouB), cloudBottom = Math.min(senkouA, senkouB);
   let pricePos = currentPrice > cloudTop ? 'above' : currentPrice < cloudBottom ? 'below' : 'inside';
   const cloudColor = senkouA >= senkouB ? 'green' : 'red';
   const tkCross = tenkan > kijun ? 'bull' : tenkan < kijun ? 'bear' : 'neutral';
-  return {
-    tenkan: parseFloat(tenkan.toFixed(2)), kijun: parseFloat(kijun.toFixed(2)),
-    senkouA: parseFloat(senkouA.toFixed(2)), senkouB: parseFloat(senkouB.toFixed(2)),
-    cloudTop: parseFloat(cloudTop.toFixed(2)), cloudBottom: parseFloat(cloudBottom.toFixed(2)),
-    pricePos, cloudColor, tkCross
-  };
+  return { tenkan: parseFloat(tenkan.toFixed(2)), kijun: parseFloat(kijun.toFixed(2)), senkouA: parseFloat(senkouA.toFixed(2)), senkouB: parseFloat(senkouB.toFixed(2)), cloudTop: parseFloat(cloudTop.toFixed(2)), cloudBottom: parseFloat(cloudBottom.toFixed(2)), pricePos, cloudColor, tkCross };
 }
 
 function priceVolSignal(closes, vols, days, avgVol20) {
   const len = closes.length;
   if (len <= days) days = len - 1;
-  const priceNow = closes[len - 1];
-  const priceThen = closes[len - 1 - days];
+  const priceNow = closes[len - 1], priceThen = closes[len - 1 - days];
   const priceUp = priceNow > priceThen;
   const pricePct = ((priceNow - priceThen) / priceThen) * 100;
   const recentVolAvg = vols.slice(-days).reduce((a, b) => a + b, 0) / days;
@@ -220,41 +250,35 @@ app.get('/analyze/:ticker', async (req, res) => {
       return { period: p, value: parseFloat(value.toFixed(2)), above: currentPrice > value, diff: parseFloat(diff.toFixed(2)) };
     });
 
-    const rsiSeries = calcRSISeries(closes, 14);
-    const rsi = rsiSeries[rsiSeries.length - 1];
+    // RSI (hizalı seri)
+    const rsiSeriesAligned = calcRSISeries(closes, 14);
+    const rsiVals = rsiSeriesAligned.filter(x => x !== null);
+    const rsi = rsiVals[rsiVals.length - 1];
     let rsiSignal = null, rsiVsSignalPct = null, rsiAboveSignal = null;
-    if (rsiSeries.length >= 9) {
-      const last9 = rsiSeries.slice(-9);
+    if (rsiVals.length >= 9) {
+      const last9 = rsiVals.slice(-9);
       rsiSignal = last9.reduce((a, b) => a + b, 0) / 9;
       rsiAboveSignal = rsi > rsiSignal;
       rsiVsSignalPct = ((rsi - rsiSignal) / rsiSignal) * 100;
     }
+    const rsiDiv = detectDivergence(closes, rsiSeriesAligned, 40);
 
-    // MOMENTUM (10) + 15 barlık SMA
+    // MOMENTUM
     let momentum = null;
-    const momSeries = calcMomentumSeries(closes, 10);
-    if (momSeries.length >= 15) {
-      const momNow = momSeries[momSeries.length - 1];
-      const momPrev = momSeries[momSeries.length - 2];
-      const last15 = momSeries.slice(-15);
-      const momSMA = last15.reduce((a, b) => a + b, 0) / 15;
+    const momAligned = calcMomentumSeriesAligned(closes, 10);
+    const momVals = momAligned.filter(x => x !== null);
+    if (momVals.length >= 15) {
+      const momNow = momVals[momVals.length - 1], momPrev = momVals[momVals.length - 2];
+      const momSMA = momVals.slice(-15).reduce((a, b) => a + b, 0) / 15;
       const aboveSMA = momNow > momSMA;
-      // SMA'ya yüzde uzaklık (mutlak değere göre, işaret korunur)
       const vsSMApct = momSMA !== 0 ? ((momNow - momSMA) / Math.abs(momSMA)) * 100 : 0;
-      // Sinyal: momentum sıfırın üstünde/altında + yönü
       let signal;
       if (momNow > 0 && momNow > momPrev) signal = 'strong_up';
       else if (momNow > 0 && momNow <= momPrev) signal = 'weak_up';
       else if (momNow < 0 && momNow < momPrev) signal = 'strong_down';
       else signal = 'weak_down';
-      momentum = {
-        value: parseFloat(momNow.toFixed(2)),
-        sma: parseFloat(momSMA.toFixed(2)),
-        aboveSMA,
-        vsSMApct: parseFloat(vsSMApct.toFixed(1)),
-        signal,
-        positive: momNow > 0
-      };
+      const momDiv = detectDivergence(closes, momAligned, 40);
+      momentum = { value: parseFloat(momNow.toFixed(2)), sma: parseFloat(momSMA.toFixed(2)), aboveSMA, vsSMApct: parseFloat(vsSMApct.toFixed(1)), signal, positive: momNow > 0, divergence: momDiv };
     }
 
     const supertrend = calcSupertrend(highs, lows, closes, 10, 3);
@@ -269,6 +293,7 @@ app.get('/analyze/:ticker', async (req, res) => {
     const max50Vol = Math.max(...vols.slice(-50));
     const volPosPct = (currentVol / max50Vol) * 100;
 
+    // OBV (hizalı seri)
     let obv = 0; const obvSeries = [0];
     for (let i = 1; i < closes.length; i++) {
       if (closes[i] > closes[i - 1]) obv += vols[i];
@@ -282,6 +307,7 @@ app.get('/analyze/:ticker', async (req, res) => {
     else if (!obvRising && !priceRising20) obvSignal = 'confirm_down';
     else if (obvRising && !priceRising20) obvSignal = 'bull_div';
     else obvSignal = 'bear_div';
+    const obvDiv = detectDivergence(closes, obvSeries, 40);
 
     const sr = findSupportResistance(highs, lows, currentPrice, cfg.lookback);
 
@@ -290,8 +316,9 @@ app.get('/analyze/:ticker', async (req, res) => {
       mas, rsi: parseFloat(rsi.toFixed(1)),
       rsiSignal: rsiSignal !== null ? parseFloat(rsiSignal.toFixed(1)) : null,
       rsiAboveSignal, rsiVsSignalPct: rsiVsSignalPct !== null ? parseFloat(rsiVsSignalPct.toFixed(2)) : null,
+      rsiDivergence: rsiDiv,
       momentum, supertrend, ichimoku,
-      volume: { current: currentVol, avg20: Math.round(avgVol20), avg5: Math.round(avgVol5), ratio: parseFloat(volRatio.toFixed(2)), priceVol, trend: volTrend, trendPct: parseFloat(volTrendPct.toFixed(1)), posPct: parseFloat(volPosPct.toFixed(0)), max50: Math.round(max50Vol), obvSignal, obvRising },
+      volume: { current: currentVol, avg20: Math.round(avgVol20), avg5: Math.round(avgVol5), ratio: parseFloat(volRatio.toFixed(2)), priceVol, trend: volTrend, trendPct: parseFloat(volTrendPct.toFixed(1)), posPct: parseFloat(volPosPct.toFixed(0)), max50: Math.round(max50Vol), obvSignal, obvRising, obvDivergence: obvDiv },
       supportResistance: sr
     });
 
