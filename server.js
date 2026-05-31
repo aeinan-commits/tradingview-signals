@@ -36,16 +36,12 @@ function ema(arr, period) {
   return emaVal;
 }
 
-// Fiyat+Hacim ilişkisini belirli bir periyot için hesapla
 function priceVolSignal(closes, vols, days, avgVol20) {
   const len = closes.length;
-  // Fiyat yönü: bugün vs 'days' gün önce
   const priceNow = closes[len - 1];
   const priceThen = closes[len - 1 - days];
   const priceUp = priceNow > priceThen;
   const pricePct = ((priceNow - priceThen) / priceThen) * 100;
-
-  // Hacim: son 'days' gün ortalaması vs 20 günlük ortalama
   const recentVolAvg = vols.slice(-days).reduce((a, b) => a + b, 0) / days;
   const volAboveAvg = recentVolAvg > avgVol20;
 
@@ -55,13 +51,7 @@ function priceVolSignal(closes, vols, days, avgVol20) {
   else if (!priceUp && volAboveAvg) signal = 'strong_down';
   else signal = 'weak_down';
 
-  return {
-    signal,
-    priceUp,
-    pricePct: parseFloat(pricePct.toFixed(2)),
-    volAboveAvg,
-    recentVolAvg: Math.round(recentVolAvg)
-  };
+  return { signal, priceUp, pricePct: parseFloat(pricePct.toFixed(2)), volAboveAvg };
 }
 
 app.get('/analyze/:ticker', async (req, res) => {
@@ -93,12 +83,7 @@ app.get('/analyze/:ticker', async (req, res) => {
     const mas = periods.map(p => {
       const value = ema(closes, p);
       const diff = ((currentPrice - value) / value) * 100;
-      return {
-        period: p,
-        value: parseFloat(value.toFixed(2)),
-        above: currentPrice > value,
-        diff: parseFloat(diff.toFixed(2))
-      };
+      return { period: p, value: parseFloat(value.toFixed(2)), above: currentPrice > value, diff: parseFloat(diff.toFixed(2)) };
     });
 
     // RSI
@@ -116,19 +101,43 @@ app.get('/analyze/:ticker', async (req, res) => {
     const avgVol5 = vols.slice(-5).reduce((a, b) => a + b, 0) / 5;
     const volRatio = currentVol / avgVol20;
 
-    // Fiyat+Hacim ilişkisi - üç periyot için
     const priceVol = {
       d1: priceVolSignal(closes, vols, 1, avgVol20),
       d5: priceVolSignal(closes, vols, 5, avgVol20),
       d20: priceVolSignal(closes, vols, 20, avgVol20)
     };
 
-    // Hacim trendi
     const volTrendPct = ((avgVol5 - avgVol20) / avgVol20) * 100;
     let volTrend;
     if (volTrendPct > 15) volTrend = 'rising';
     else if (volTrendPct < -15) volTrend = 'falling';
     else volTrend = 'stable';
+
+    // Son 50 günün en yüksek hacmine göre konum
+    const last50Vols = vols.slice(-50);
+    const max50Vol = Math.max(...last50Vols);
+    const volPosPct = (currentVol / max50Vol) * 100;
+
+    // OBV (On-Balance Volume) - son 50 gün
+    let obv = 0;
+    const obvSeries = [0];
+    for (let i = 1; i < closes.length; i++) {
+      if (closes[i] > closes[i - 1]) obv += vols[i];
+      else if (closes[i] < closes[i - 1]) obv -= vols[i];
+      obvSeries.push(obv);
+    }
+    // OBV trendi: son 20 günde OBV yükseliyor mu?
+    const obvNow = obvSeries[obvSeries.length - 1];
+    const obv20Ago = obvSeries[obvSeries.length - 21] || obvSeries[0];
+    const obvRising = obvNow > obv20Ago;
+    // Fiyat ile OBV uyumu (divergence kontrolü)
+    const price20Ago = closes[closes.length - 21] || closes[0];
+    const priceRising20 = currentPrice > price20Ago;
+    let obvSignal;
+    if (obvRising && priceRising20) obvSignal = 'confirm_up';     // ikisi de yukarı - sağlıklı
+    else if (!obvRising && !priceRising20) obvSignal = 'confirm_down'; // ikisi de aşağı
+    else if (obvRising && !priceRising20) obvSignal = 'bull_div';  // OBV yukarı fiyat aşağı - gizli alım
+    else obvSignal = 'bear_div';                                   // OBV aşağı fiyat yukarı - gizli satım
 
     const week52High = meta.fiftyTwoWeekHigh || null;
     const week52Low = meta.fiftyTwoWeekLow || null;
@@ -145,7 +154,11 @@ app.get('/analyze/:ticker', async (req, res) => {
         ratio: parseFloat(volRatio.toFixed(2)),
         priceVol,
         trend: volTrend,
-        trendPct: parseFloat(volTrendPct.toFixed(1))
+        trendPct: parseFloat(volTrendPct.toFixed(1)),
+        posPct: parseFloat(volPosPct.toFixed(0)),
+        max50: Math.round(max50Vol),
+        obvSignal,
+        obvRising
       },
       week52High: week52High ? parseFloat(week52High.toFixed(2)) : null,
       week52Low: week52Low ? parseFloat(week52Low.toFixed(2)) : null
