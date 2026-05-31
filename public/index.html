@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TradingView Sinyaller</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0f0f0f; color: #fff; font-family: Arial, sans-serif; padding: 20px; }
+    h1 { color: #f0b90b; text-align: center; margin-bottom: 20px; font-size: 1.4rem; }
+    #signals { display: flex; flex-direction: column; gap: 12px; }
+    .signal {
+      background: #1a1a1a;
+      border-left: 4px solid #f0b90b;
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .ticker { font-size: 1.2rem; font-weight: bold; color: #f0b90b; }
+    .price { font-size: 1rem; color: #00c853; margin-top: 4px; }
+    .message { font-size: 0.85rem; color: #aaa; margin-top: 4px; }
+    .time { font-size: 0.75rem; color: #555; margin-top: 6px; }
+    .empty { text-align: center; color: #555; margin-top: 60px; font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+  <h1>📡 TradingView Sinyaller</h1>
+  <div id="signals"><p class="empty">Henüz sinyal gelmedi...</p></div>
+
+  <script>
+    async function fetchSignals() {
+      const res = await fetch('/signals');
+      const data = await res.json();
+      const container = document.getElementById('signals');
+      if (data.length === 0) {
+        container.innerHTML = '<p class="empty">Henüz sinyal gelmedi...</p>';
+        return;
+      }
+      container.innerHTML = data.map(s => `
+        <div class="signal">
+          <div class="ticker">📈 ${s.ticker}</div>
+          <div class="price">💰 ${s.price}</div>
+          <div class="message">${s.message}</div>
+          <div class="time">🕐 ${s.time}</div>
+        </div>
+      `).join('');
+    }
+
+    fetchSignals();
+    setInterval(fetchSignals, 10000); // Her 10 saniyede güncelle
+  </script>
+</body>
+</html>
