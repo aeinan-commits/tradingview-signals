@@ -7,6 +7,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+const ALPHA_KEY = '4FO7QHSOROV1J3XV';
 let signals = [];
 
 app.post('/webhook', (req, res) => {
@@ -29,51 +30,45 @@ app.get('/signals', (req, res) => {
 app.get('/analyze/:ticker', async (req, res) => {
   try {
     const ticker = req.params.ticker.toUpperCase() + '.IS';
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
-        'Accept-Language': 'en-US,en;q=0.9'
-      }
-    });
+    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=full&apikey=${ALPHA_KEY}`;
 
-    const text = await response.text();
-    console.log('Yahoo yanıtı:', text.substring(0, 500));
-    
-    const data = JSON.parse(text);
+    const response = await fetch(url);
+    const data = await response.json();
 
-    if (!data.chart || !data.chart.result) {
-      return res.status(500).json({ error: 'Yahoo Finance veri döndürmedi', raw: text.substring(0, 300) });
+    console.log('Alpha yanıtı:', JSON.stringify(data).substring(0, 300));
+
+    if (data['Note'] || data['Information']) {
+      return res.status(500).json({ error: 'API limit aşıldı, biraz bekleyin' });
     }
 
-    const prices = data.chart.result[0].indicators.quote[0].close;
-    const volumes = data.chart.result[0].indicators.quote[0].volume;
-    const timestamps = data.chart.result[0].timestamp;
+    if (!data['Time Series (Daily)']) {
+      return res.status(500).json({ error: 'Hisse bulunamadı: ' + ticker });
+    }
 
-    const valid = prices.map((p, i) => ({ p, v: volumes[i], t: timestamps[i] })).filter(x => x.p !== null);
-    const closes = valid.map(x => x.p);
-    const vols = valid.map(x => x.v);
+    const series = data['Time Series (Daily)'];
+    const dates = Object.keys(series).sort();
+    const closes = dates.map(d => parseFloat(series[d]['4. close']));
+    const volumes = dates.map(d => parseFloat(series[d]['5. volume']));
+
     const currentPrice = closes[closes.length - 1];
-    const currentVol = vols[vols.length - 1];
+    const currentVol = volumes[volumes.length - 1];
 
-    const ma200closes = closes.slice(-200);
-    const ma200 = ma200closes.reduce((a, b) => a + b, 0) / ma200closes.length;
+    const ma200arr = closes.slice(-200);
+    const ma200 = ma200arr.reduce((a, b) => a + b, 0) / ma200arr.length;
 
-    const ma50closes = closes.slice(-50);
-    const ma50 = ma50closes.reduce((a, b) => a + b, 0) / ma50closes.length;
+    const ma50arr = closes.slice(-50);
+    const ma50 = ma50arr.reduce((a, b) => a + b, 0) / ma50arr.length;
 
-    const rsiPrices = closes.slice(-15);
+    const rsiArr = closes.slice(-15);
     let gains = 0, losses = 0;
-    for (let i = 1; i < rsiPrices.length; i++) {
-      const diff = rsiPrices[i] - rsiPrices[i - 1];
+    for (let i = 1; i < rsiArr.length; i++) {
+      const diff = rsiArr[i] - rsiArr[i - 1];
       if (diff > 0) gains += diff;
       else losses += Math.abs(diff);
     }
     const rsi = 100 - (100 / (1 + gains / (losses || 1)));
 
-    const avgVol = vols.slice(-20).reduce((a, b) => a + b, 0) / 20;
+    const avgVol = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20;
 
     res.json({
       ticker: req.params.ticker.toUpperCase(),
