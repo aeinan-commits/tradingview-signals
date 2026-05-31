@@ -44,7 +44,7 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 .vol-desc{font-size:.8rem;color:#888;line-height:1.5}
 .bar-bg{background:#2a2a2a;border-radius:10px;height:8px;margin:10px 0;overflow:hidden}
 .bar-fill{height:100%;border-radius:10px}
-.rsi-box{background:#1a1a1a;border-radius:12px;padding:20px}
+.rsi-box{flex:1;min-width:280px;background:#1a1a1a;border-radius:12px;padding:20px}
 .rsi-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .rsi-val{font-size:2rem;font-weight:bold}
 .rsi-label{font-size:1rem;font-weight:bold;padding:4px 14px;border-radius:20px}
@@ -52,6 +52,15 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 .rsi-marker{position:absolute;top:-6px;width:4px;height:22px;background:#fff;border-radius:2px;transform:translateX(-50%)}
 .rsi-scale{display:flex;justify-content:space-between;font-size:.7rem;color:#666}
 .rsi-desc{font-size:.85rem;color:#888;line-height:1.5;margin-top:12px}
+.sig-box{flex:1;min-width:280px;background:#1a1a1a;border-radius:12px;padding:20px;border-left:4px solid #333}
+.sig-box.green{border-left-color:#00c853}
+.sig-box.red{border-left-color:#ff4444}
+.sig-label{color:#aaa;font-size:.85rem;font-weight:bold;margin-bottom:10px}
+.sig-main{font-size:1.6rem;font-weight:bold;margin-bottom:6px}
+.sig-main.green{color:#00c853}
+.sig-main.red{color:#ff4444}
+.sig-sub{font-size:1rem;color:#aaa;margin-bottom:10px}
+.sig-desc{font-size:.85rem;color:#888;line-height:1.5}
 .period-btns{display:flex;gap:6px}
 .period-btns button{padding:4px 12px;background:#1a1a1a;color:#aaa;border:1px solid #333;border-radius:6px;cursor:pointer;font-size:.75rem;font-weight:bold}
 .period-btns button.active{background:#f0b90b;color:#000;border-color:#f0b90b}
@@ -149,36 +158,13 @@ async function run(keepTicker) {
       var cls = m.above ? 'up' : 'down';
       var sign = m.diff >= 0 ? '+' : '';
       var status = m.above ? 'Fiyat üstünde' : 'Fiyat altında';
-      return '<div class="ma-box ' + cls + '">' +
-        '<div class="ma-name">EMA' + m.period + '</div>' +
-        '<div class="ma-value">₺' + m.value + '</div>' +
-        '<div class="ma-diff ' + cls + '">' + sign + m.diff + '%</div>' +
-        '<div class="ma-status">' + status + '</div>' +
-      '</div>';
+      return '<div class="ma-box ' + cls + '"><div class="ma-name">EMA' + m.period + '</div><div class="ma-value">₺' + m.value + '</div><div class="ma-diff ' + cls + '">' + sign + m.diff + '%</div><div class="ma-status">' + status + '</div></div>';
     }).join('');
-
-    // RSI
-    var rsi = d.rsi;
-    var rsiCls, rsiLabel, rsiLabelColor, rsiDesc;
-    if (rsi < 30) { rsiCls = '#00c853'; rsiLabel = 'Aşırı Satım'; rsiLabelColor = '#00c85322'; rsiDesc = 'RSI 30 altında — hisse aşırı satılmış. Tepki/dönüş alımı gelebilir, ama düşüş trendinde de uzun süre kalabilir.'; }
-    else if (rsi > 70) { rsiCls = '#ff4444'; rsiLabel = 'Aşırı Alım'; rsiLabelColor = '#ff444422'; rsiDesc = 'RSI 70 üstünde — hisse aşırı alınmış. Kâr satışı/düzeltme gelebilir, ama güçlü trendde yüksek kalabilir.'; }
-    else { rsiCls = '#f0b90b'; rsiLabel = 'Nötr'; rsiLabelColor = '#f0b90b22'; rsiDesc = 'RSI 30-70 arası nötr bölgede. Belirgin aşırılık yok, trend yönü diğer göstergelerle teyit edilmeli.'; }
-
-    var rsiBox =
-      '<div class="rsi-box">' +
-        '<div class="rsi-top">' +
-          '<span class="rsi-val" style="color:' + rsiCls + '">' + rsi + '</span>' +
-          '<span class="rsi-label" style="background:' + rsiLabelColor + ';color:' + rsiCls + '">' + rsiLabel + '</span>' +
-        '</div>' +
-        '<div class="rsi-track"><div class="rsi-marker" style="left:' + rsi + '%"></div></div>' +
-        '<div class="rsi-scale"><span>0</span><span>30</span><span>70</span><span>100</span></div>' +
-        '<div class="rsi-desc">' + rsiDesc + '</div>' +
-      '</div>';
 
     var v = d.volume;
 
     var ratioCls, ratioText, ratioDesc;
-    if (v.ratio >= 2) { ratioCls = 'purple'; ratioText = v.ratio + 'x 🔥'; ratioDesc = 'Hacim ortalamanın ' + v.ratio + ' katı. Çok güçlü ilgi — önemli bir hareket olabilir.'; }
+    if (v.ratio >= 2) { ratioCls = 'purple'; ratioText = v.ratio + 'x 🔥'; ratioDesc = 'Hacim ortalamanın ' + v.ratio + ' katı. Çok güçlü ilgi.'; }
     else if (v.ratio >= 1) { ratioCls = 'green'; ratioText = v.ratio + 'x ✅'; ratioDesc = 'Hacim ortalamanın üstünde. Katılım sağlıklı.'; }
     else { ratioCls = 'red'; ratioText = v.ratio + 'x 😴'; ratioDesc = 'Hacim ortalamanın altında. İlgi zayıf.'; }
 
@@ -208,15 +194,46 @@ async function run(keepTicker) {
       '<div class="vol-box ' + posCls + '"><div class="vol-label">Son 50 Bar Hacim Konumu</div><div class="vol-main ' + posCls + '">%' + v.posPct + '</div><div class="bar-bg"><div class="bar-fill" style="width:' + v.posPct + '%;background:' + posBarColor + '"></div></div><div class="vol-desc">' + posDesc + '<br>Zirve: ' + fmtVol(v.max50) + '</div></div>' +
       '<div class="vol-box ' + obvCls + '"><div class="vol-label">OBV (Para Akışı)</div><div class="vol-main ' + obvCls + '">' + obvText + '</div><div class="vol-desc">' + obvDesc + '</div></div>';
 
+    // RSI
+    var rsi = d.rsi;
+    var rsiCls, rsiLabel, rsiLabelColor, rsiDesc;
+    if (rsi < 30) { rsiCls = '#00c853'; rsiLabel = 'Aşırı Satım'; rsiLabelColor = '#00c85322'; rsiDesc = 'RSI 30 altında — hisse aşırı satılmış. Tepki/dönüş alımı gelebilir, ama düşüş trendinde uzun kalabilir.'; }
+    else if (rsi > 70) { rsiCls = '#ff4444'; rsiLabel = 'Aşırı Alım'; rsiLabelColor = '#ff444422'; rsiDesc = 'RSI 70 üstünde — hisse aşırı alınmış. Kâr satışı/düzeltme gelebilir, ama güçlü trendde yüksek kalabilir.'; }
+    else { rsiCls = '#f0b90b'; rsiLabel = 'Nötr'; rsiLabelColor = '#f0b90b22'; rsiDesc = 'RSI 30-70 arası nötr bölgede. Belirgin aşırılık yok.'; }
+
+    var rsiBox =
+      '<div class="rsi-box">' +
+        '<div class="rsi-top"><span class="rsi-val" style="color:' + rsiCls + '">' + rsi + '</span><span class="rsi-label" style="background:' + rsiLabelColor + ';color:' + rsiCls + '">' + rsiLabel + '</span></div>' +
+        '<div class="rsi-track"><div class="rsi-marker" style="left:' + rsi + '%"></div></div>' +
+        '<div class="rsi-scale"><span>0</span><span>30</span><span>70</span><span>100</span></div>' +
+        '<div class="rsi-desc">' + rsiDesc + '</div>' +
+      '</div>';
+
+    // RSI Sinyal Çizgisi (9 SMA)
+    var sigBox;
+    if (d.rsiSignal !== null) {
+      var above = d.rsiAboveSignal;
+      var sigCls = above ? 'green' : 'red';
+      var pct = d.rsiVsSignalPct >= 0 ? '+' + d.rsiVsSignalPct : d.rsiVsSignalPct;
+      var sigDesc = above
+        ? 'RSI, 9 barlık ortalamasının üstünde. Momentum yukarı dönüyor — kısa vadeli güç artışı sinyali.'
+        : 'RSI, 9 barlık ortalamasının altında. Momentum aşağı dönüyor — kısa vadeli zayıflama sinyali.';
+      sigBox =
+        '<div class="sig-box ' + sigCls + '">' +
+          '<div class="sig-label">RSI vs 9 Bar Ortalaması (Sinyal Çizgisi)</div>' +
+          '<div class="sig-main ' + sigCls + '">' + (above ? '▲ Üstünde' : '▼ Altında') + '</div>' +
+          '<div class="sig-sub">RSI: ' + rsi + ' &nbsp;|&nbsp; 9B Ort: ' + d.rsiSignal + ' &nbsp;(' + pct + '%)</div>' +
+          '<div class="sig-desc">' + sigDesc + '</div>' +
+        '</div>';
+    } else {
+      sigBox = '<div class="sig-box"><div class="sig-label">RSI Sinyal Çizgisi</div><div class="sig-desc">Yeterli veri yok</div></div>';
+    }
+
     r.innerHTML =
-      '<div class="price-header">' +
-        '<div class="tk">📈 ' + d.ticker + '</div>' +
-        '<div class="pr">₺' + d.currentPrice + '</div>' +
-        '<div class="tf">' + tfLabels[d.timeframe] + ' grafik</div>' +
-      '</div>' +
+      '<div class="price-header"><div class="tk">📈 ' + d.ticker + '</div><div class="pr">₺' + d.currentPrice + '</div><div class="tf">' + tfLabels[d.timeframe] + ' grafik</div></div>' +
       '<div class="section"><div class="section-title">Üstel Hareketli Ortalamalar (EMA)</div><div class="grid">' + maBoxes + '</div></div>' +
-      '<div class="section"><div class="section-title">RSI (14) — Göreceli Güç Endeksi</div>' + rsiBox + '</div>' +
-      '<div class="section"><div class="section-title"><span>Hacim Analizi</span><div class="period-btns"><button id="pb_d1" onclick="setPeriod(\'d1\')">1 Bar</button><button id="pb_d5" onclick="setPeriod(\'d5\')">5 Bar</button><button id="pb_d20" onclick="setPeriod(\'d20\')">20 Bar</button></div></div><div class="grid">' + volBoxes + '</div></div>';
+      '<div class="section"><div class="section-title"><span>Hacim Analizi</span><div class="period-btns"><button id="pb_d1" onclick="setPeriod(\'d1\')">1 Bar</button><button id="pb_d5" onclick="setPeriod(\'d5\')">5 Bar</button><button id="pb_d20" onclick="setPeriod(\'d20\')">20 Bar</button></div></div><div class="grid">' + volBoxes + '</div></div>' +
+      '<div class="section"><div class="section-title">RSI (14) — Göreceli Güç Endeksi</div><div class="grid">' + rsiBox + sigBox + '</div></div>';
 
     selectedPeriod = 'd1';
     renderPriceVol();
