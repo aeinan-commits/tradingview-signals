@@ -68,7 +68,7 @@ app.get('/analyze/:ticker', async (req, res) => {
     const week52Low = meta.fiftyTwoWeekLow || null;
 
     // Temel analiz - IsYatirim
-    let pe = null, pb = null, marketCap = null, dividendYield = null;
+    let pe = null, pb = null, fdsatis = null, fdfavok = null, dividendYield = null, marketCap = null;
     try {
       const isRes = await fetch(`https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/sirket-karti.aspx?hisse=${tickerClean}`, {
         headers: {
@@ -78,13 +78,33 @@ app.get('/analyze/:ticker', async (req, res) => {
         }
       });
       const html = await isRes.text();
-      console.log('IsYatirim status:', isRes.status, html.substring(0, 300));
+      console.log('IsYatirim status:', isRes.status);
 
-      const peMatch = html.match(/F\/K.*?<[^>]+>([\d,\.]+)/s);
-      if (peMatch) pe = parseFloat(peMatch[1].replace(',', '.'));
+      // Tüm sayısal değerleri label ile çek
+      const pairs = [];
+      const rowRegex = /<span[^>]*title="([^"]+)"[^>]*>[\s\S]*?<span[^>]*>([\d,\.]+)<\/span>/g;
+      let m;
+      while ((m = rowRegex.exec(html)) !== null) {
+        pairs.push({ label: m[1], value: parseFloat(m[2].replace(',', '.')) });
+      }
+      console.log('Pairs:', JSON.stringify(pairs.slice(0, 20)));
 
-      const pbMatch = html.match(/PD\/DD.*?<[^>]+>([\d,\.]+)/s);
-      if (pbMatch) pb = parseFloat(pbMatch[1].replace(',', '.'));
+      pairs.forEach(p => {
+        if (p.label.includes('F/K')) pe = p.value;
+        if (p.label.includes('PD/DD')) pb = p.value;
+        if (p.label.includes('FD/Satış')) fdsatis = p.value;
+        if (p.label.includes('FD/FAVÖK') || p.label.includes('FD/FAVOK')) fdfavok = p.value;
+      });
+
+      // Alternatif regex
+      if (!pe) {
+        const peM = html.match(/["'>]F\/K["'<][^>]*>\s*([\d,\.]+)/);
+        if (peM) pe = parseFloat(peM[1].replace(',', '.'));
+      }
+      if (!pb) {
+        const pbM = html.match(/["'>]PD\/DD["'<][^>]*>\s*([\d,\.]+)/);
+        if (pbM) pb = parseFloat(pbM[1].replace(',', '.'));
+      }
 
     } catch(e) {
       console.log('IsYatirim hatası:', e.message);
@@ -104,6 +124,8 @@ app.get('/analyze/:ticker', async (req, res) => {
       veryHighVolume: currentVol > avgVol * 2,
       pe: pe || null,
       pb: pb || null,
+      fdsatis: fdsatis || null,
+      fdfavok: fdfavok || null,
       marketCap,
       dividendYield,
       week52High: week52High ? parseFloat(week52High.toFixed(2)) : null,
@@ -117,4 +139,4 @@ app.get('/analyze/:ticker', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Sunucu çalışıyor: ${PORT}`));
+app.listen(PORT, () => console.env(`Sunucu çalışıyor: ${PORT}`));
