@@ -139,4 +139,4 @@ app.get('/analyze/:ticker', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.env(`Sunucu çalışıyor: ${PORT}`));
+app.listen(PORT, () => console.log(`Sunucu çalışıyor: ${PORT}`));
