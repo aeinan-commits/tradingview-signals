@@ -9,7 +9,6 @@ app.use(express.static('public'));
 
 let signals = [];
 
-// Webhook endpoint
 app.post('/webhook', (req, res) => {
   const signal = {
     id: Date.now(),
@@ -27,42 +26,35 @@ app.get('/signals', (req, res) => {
   res.json(signals);
 });
 
-// Hisse analiz endpoint
 app.get('/analyze/:ticker', async (req, res) => {
   try {
     const ticker = req.params.ticker.toUpperCase() + '.IS';
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y&includePrePost=false&events=div%2Csplit`;
+    
     const response = await fetch(url, {
       headers: {
-       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-       'Accept': 'application/json'
-  }
-});
-    
-    const response = await fetch(url);
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json'
+      }
+    });
+
     const data = await response.json();
-    
     const prices = data.chart.result[0].indicators.quote[0].close;
     const volumes = data.chart.result[0].indicators.quote[0].volume;
     const timestamps = data.chart.result[0].timestamp;
-    
-    // Geçerli verileri filtrele
+
     const valid = prices.map((p, i) => ({ p, v: volumes[i], t: timestamps[i] })).filter(x => x.p !== null);
-    
     const closes = valid.map(x => x.p);
     const vols = valid.map(x => x.v);
     const currentPrice = closes[closes.length - 1];
     const currentVol = vols[vols.length - 1];
 
-    // MA200
     const ma200closes = closes.slice(-200);
     const ma200 = ma200closes.reduce((a, b) => a + b, 0) / ma200closes.length;
 
-    // MA50
     const ma50closes = closes.slice(-50);
     const ma50 = ma50closes.reduce((a, b) => a + b, 0) / ma50closes.length;
 
-    // RSI 14
     const rsiPrices = closes.slice(-15);
     let gains = 0, losses = 0;
     for (let i = 1; i < rsiPrices.length; i++) {
@@ -70,10 +62,8 @@ app.get('/analyze/:ticker', async (req, res) => {
       if (diff > 0) gains += diff;
       else losses += Math.abs(diff);
     }
-    const rs = gains / (losses || 1);
-    const rsi = 100 - (100 / (1 + rs));
+    const rsi = 100 - (100 / (1 + gains / (losses || 1)));
 
-    // Hacim ortalaması (20 gün)
     const avgVol = vols.slice(-20).reduce((a, b) => a + b, 0) / 20;
 
     res.json({
