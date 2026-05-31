@@ -32,14 +32,54 @@ function ema(arr, period) {
   return emaVal;
 }
 
+// EMA serisi (hizalı, ilk period-1 null)
+function emaSeries(arr, period) {
+  const out = [];
+  const k = 2 / (period + 1);
+  let prev = null;
+  for (let i = 0; i < arr.length; i++) {
+    if (i < period - 1) { out[i] = null; continue; }
+    if (i === period - 1) {
+      prev = arr.slice(0, period).reduce((a, b) => a + b, 0) / period;
+      out[i] = prev;
+    } else {
+      prev = arr[i] * k + prev * (1 - k);
+      out[i] = prev;
+    }
+  }
+  return out;
+}
+
+function calcMACD(closes, fast, slow, signalP) {
+  const n = closes.length;
+  if (n < slow + signalP) return null;
+  const emaFast = emaSeries(closes, fast);
+  const emaSlow = emaSeries(closes, slow);
+  const macdLine = [];
+  for (let i = 0; i < n; i++) {
+    macdLine[i] = (emaFast[i] !== null && emaSlow[i] !== null) ? emaFast[i] - emaSlow[i] : null;
+  }
+  // Sinyal = MACD'nin EMA'sı (null olmayan kısımdan)
+  const macdValsIdx = [];
+  const macdVals = [];
+  for (let i = 0; i < n; i++) if (macdLine[i] !== null) { macdValsIdx.push(i); macdVals.push(macdLine[i]); }
+  const sigVals = emaSeries(macdVals, signalP);
+  const signalLine = new Array(n).fill(null);
+  for (let j = 0; j < macdValsIdx.length; j++) {
+    if (sigVals[j] !== null) signalLine[macdValsIdx[j]] = sigVals[j];
+  }
+  const histogram = [];
+  for (let i = 0; i < n; i++) {
+    histogram[i] = (macdLine[i] !== null && signalLine[i] !== null) ? macdLine[i] - signalLine[i] : null;
+  }
+  return { macdLine, signalLine, histogram };
+}
+
 function calcRSISeries(closes, period) {
   if (closes.length < period + 1) return [];
   const rsiArr = [];
   let gains = 0, losses = 0;
-  for (let i = 1; i <= period; i++) {
-    const diff = closes[i] - closes[i - 1];
-    if (diff > 0) gains += diff; else losses += Math.abs(diff);
-  }
+  for (let i = 1; i <= period; i++) { const diff = closes[i] - closes[i - 1]; if (diff > 0) gains += diff; else losses += Math.abs(diff); }
   let avgGain = gains / period, avgLoss = losses / period;
   rsiArr[period] = 100 - (100 / (1 + avgGain / (avgLoss || 0.0001)));
   for (let i = period + 1; i < closes.length; i++) {
@@ -59,7 +99,6 @@ function calcMomentumSeriesAligned(closes, period) {
   return mom;
 }
 
-// CCI serisi (closes ile hizalı, ilk değerler null)
 function calcCCISeries(highs, lows, closes, period) {
   const n = closes.length;
   const tp = [];
@@ -91,14 +130,8 @@ function detectDivergence(priceArr, indArr, lookback) {
     if (isLow) lows.push({ idx: i, price: priceArr[i], ind: indArr[i] });
   }
   let result = 'none';
-  if (highs.length >= 2) {
-    const a = highs[highs.length - 2], b = highs[highs.length - 1];
-    if (b.price > a.price && b.ind < a.ind) result = 'bearish';
-  }
-  if (lows.length >= 2) {
-    const a = lows[lows.length - 2], b = lows[lows.length - 1];
-    if (b.price < a.price && b.ind > a.ind) result = (result === 'bearish') ? 'both' : 'bullish';
-  }
+  if (highs.length >= 2) { const a = highs[highs.length - 2], b = highs[highs.length - 1]; if (b.price > a.price && b.ind < a.ind) result = 'bearish'; }
+  if (lows.length >= 2) { const a = lows[lows.length - 2], b = lows[lows.length - 1]; if (b.price < a.price && b.ind > a.ind) result = (result === 'bearish') ? 'both' : 'bullish'; }
   return result;
 }
 
@@ -117,10 +150,7 @@ function calcSupertrend(highs, lows, closes, period, mult) {
     finalUpper = (basicUpper < prevUpper || closes[i - 1] > prevUpper) ? basicUpper : prevUpper;
     finalLower = (basicLower > prevLower || closes[i - 1] < prevLower) ? basicLower : prevLower;
     if (i === period) trendDir = closes[i] > hl2 ? 1 : -1;
-    else {
-      if (trendDir === 1 && closes[i] < finalLower) trendDir = -1;
-      else if (trendDir === -1 && closes[i] > finalUpper) trendDir = 1;
-    }
+    else { if (trendDir === 1 && closes[i] < finalLower) trendDir = -1; else if (trendDir === -1 && closes[i] > finalUpper) trendDir = 1; }
     supertrendVal = trendDir === 1 ? finalLower : finalUpper;
     prevUpper = finalUpper; prevLower = finalLower;
   }
@@ -228,7 +258,7 @@ app.get('/analyze/:ticker', async (req, res) => {
     let closes = valid.map(x => x.p), vols = valid.map(x => x.v), highs = valid.map(x => x.h), lows = valid.map(x => x.l);
 
     if (cfg.resample) { const r = resampleTo4h(closes, vols, highs, lows); closes = r.closes; vols = r.vols; highs = r.highs; lows = r.lows; }
-    if (closes.length < 35) return res.status(500).json({ error: 'Bu zaman dilimi için yeterli veri yok' });
+    if (closes.length < 50) return res.status(500).json({ error: 'Bu zaman dilimi için yeterli veri yok' });
 
     const currentPrice = closes[closes.length - 1];
     const currentVol = vols[vols.length - 1];
@@ -252,7 +282,6 @@ app.get('/analyze/:ticker', async (req, res) => {
     }
     const rsiDiv = detectDivergence(closes, rsiSeriesAligned, 40);
 
-    // MOMENTUM
     let momentum = null;
     const momAligned = calcMomentumSeriesAligned(closes, 10);
     const momVals = momAligned.filter(x => x !== null);
@@ -269,7 +298,6 @@ app.get('/analyze/:ticker', async (req, res) => {
       momentum = { value: parseFloat(momNow.toFixed(2)), sma: parseFloat(momSMA.toFixed(2)), aboveSMA, vsSMApct: parseFloat(vsSMApct.toFixed(1)), signal, positive: momNow > 0, divergence: detectDivergence(closes, momAligned, 40) };
     }
 
-    // CCI (20) + 14 barlık SMA
     let cci = null;
     const cciAligned = calcCCISeries(highs, lows, closes, 20);
     const cciVals = cciAligned.filter(x => x !== null);
@@ -278,19 +306,40 @@ app.get('/analyze/:ticker', async (req, res) => {
       const cciSMA = cciVals.slice(-14).reduce((a, b) => a + b, 0) / 14;
       const aboveSMA = cciNow > cciSMA;
       const vsSMApct = cciSMA !== 0 ? ((cciNow - cciSMA) / Math.abs(cciSMA)) * 100 : 0;
-      // Standart sinyal: ±100 bandı
       let signal;
       if (cciNow > 100) signal = 'strong_up';
       else if (cciNow > 0) signal = 'mild_up';
       else if (cciNow < -100) signal = 'strong_down';
       else signal = 'mild_down';
-      cci = {
-        value: parseFloat(cciNow.toFixed(1)),
-        sma: parseFloat(cciSMA.toFixed(1)),
-        aboveSMA,
-        vsSMApct: parseFloat(vsSMApct.toFixed(1)),
-        signal,
-        divergence: detectDivergence(closes, cciAligned, 40)
+      cci = { value: parseFloat(cciNow.toFixed(1)), sma: parseFloat(cciSMA.toFixed(1)), aboveSMA, vsSMApct: parseFloat(vsSMApct.toFixed(1)), signal, divergence: detectDivergence(closes, cciAligned, 40) };
+    }
+
+    // MACD (12-26-9)
+    let macd = null;
+    const macdData = calcMACD(closes, 12, 26, 9);
+    if (macdData) {
+      const n = closes.length;
+      const macdNow = macdData.macdLine[n - 1];
+      const sigNow = macdData.signalLine[n - 1];
+      const histNow = macdData.histogram[n - 1];
+      const histPrev = macdData.histogram[n - 2];
+      const aboveSignal = macdNow > sigNow;
+      const aboveZero = macdNow > 0;
+      // Kesişim tespiti (son barda)
+      const macdPrev = macdData.macdLine[n - 2];
+      const sigPrev = macdData.signalLine[n - 2];
+      let cross = 'none';
+      if (macdPrev !== null && sigPrev !== null) {
+        if (macdPrev <= sigPrev && macdNow > sigNow) cross = 'bull';
+        else if (macdPrev >= sigPrev && macdNow < sigNow) cross = 'bear';
+      }
+      const histRising = (histNow !== null && histPrev !== null) ? histNow > histPrev : false;
+      macd = {
+        macd: parseFloat(macdNow.toFixed(3)),
+        signal: parseFloat(sigNow.toFixed(3)),
+        hist: parseFloat(histNow.toFixed(3)),
+        aboveSignal, aboveZero, cross, histRising,
+        divergence: detectDivergence(closes, macdData.macdLine, 40)
       };
     }
 
@@ -307,11 +356,7 @@ app.get('/analyze/:ticker', async (req, res) => {
     const volPosPct = (currentVol / max50Vol) * 100;
 
     let obv = 0; const obvSeries = [0];
-    for (let i = 1; i < closes.length; i++) {
-      if (closes[i] > closes[i - 1]) obv += vols[i];
-      else if (closes[i] < closes[i - 1]) obv -= vols[i];
-      obvSeries.push(obv);
-    }
+    for (let i = 1; i < closes.length; i++) { if (closes[i] > closes[i - 1]) obv += vols[i]; else if (closes[i] < closes[i - 1]) obv -= vols[i]; obvSeries.push(obv); }
     const obvRising = obvSeries[obvSeries.length - 1] > (obvSeries[obvSeries.length - 21] || obvSeries[0]);
     const priceRising20 = currentPrice > (closes[closes.length - 21] || closes[0]);
     let obvSignal;
@@ -329,7 +374,7 @@ app.get('/analyze/:ticker', async (req, res) => {
       rsiSignal: rsiSignal !== null ? parseFloat(rsiSignal.toFixed(1)) : null,
       rsiAboveSignal, rsiVsSignalPct: rsiVsSignalPct !== null ? parseFloat(rsiVsSignalPct.toFixed(2)) : null,
       rsiDivergence: rsiDiv,
-      momentum, cci, supertrend, ichimoku,
+      momentum, cci, macd, supertrend, ichimoku,
       volume: { current: currentVol, avg20: Math.round(avgVol20), avg5: Math.round(avgVol5), ratio: parseFloat(volRatio.toFixed(2)), priceVol, trend: volTrend, trendPct: parseFloat(volTrendPct.toFixed(1)), posPct: parseFloat(volPosPct.toFixed(0)), max50: Math.round(max50Vol), obvSignal, obvRising, obvDivergence: obvDiv },
       supportResistance: sr
     });
