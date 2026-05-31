@@ -3,37 +3,36 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BIST Analiz</title>
+<title>BIST Teknik Analiz</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0f0f0f;color:#fff;font-family:Arial,sans-serif;padding:20px;max-width:640px;margin:0 auto}
+body{background:#0f0f0f;color:#fff;font-family:Arial,sans-serif;padding:20px;max-width:1000px;margin:0 auto}
 h1{color:#f0b90b;text-align:center;margin-bottom:24px}
-.search{display:flex;gap:10px;margin-bottom:24px}
+.search{display:flex;gap:10px;margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto}
 .search input{flex:1;padding:12px;border-radius:8px;border:1px solid #333;background:#1a1a1a;color:#fff;font-size:1rem;text-transform:uppercase}
 .search button{padding:12px 20px;background:#f0b90b;color:#000;border:none;border-radius:8px;font-weight:bold;cursor:pointer}
-.card{background:#1a1a1a;border-radius:12px;padding:20px;margin-bottom:16px}
-.card-title{color:#f0b90b;font-weight:bold;margin-bottom:16px;font-size:1.05rem}
-.row{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid #2a2a2a;gap:12px}
-.row:last-child{border-bottom:none}
-.left{display:flex;flex-direction:column;gap:3px}
-.label{color:#ccc;font-size:.9rem;font-weight:bold}
-.desc{color:#666;font-size:.75rem;max-width:320px;line-height:1.4}
-.badge{padding:4px 10px;border-radius:20px;font-size:.8rem;font-weight:bold;white-space:nowrap}
-.green{background:#00c85322;color:#00c853}
-.red{background:#ff444422;color:#ff4444}
-.yellow{background:#f0b90b22;color:#f0b90b}
-.purple{background:#9c27b022;color:#ce93d8}
-.vgreen{color:#00c853;font-weight:bold}
-.vred{color:#ff4444;font-weight:bold}
-.vyellow{color:#f0b90b;font-weight:bold}
+.price-header{text-align:center;margin-bottom:20px}
+.price-header .tk{color:#f0b90b;font-size:1.5rem;font-weight:bold}
+.price-header .pr{font-size:2rem;font-weight:bold;margin-top:4px}
+.section{margin-bottom:24px}
+.section-title{color:#888;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;border-bottom:1px solid #2a2a2a;padding-bottom:8px}
+.grid{display:flex;flex-wrap:wrap;gap:12px}
+.ma-box{flex:1;min-width:150px;background:#1a1a1a;border-radius:12px;padding:16px;border-top:3px solid #333}
+.ma-box.up{border-top-color:#00c853}
+.ma-box.down{border-top-color:#ff4444}
+.ma-name{color:#aaa;font-size:.8rem;font-weight:bold;margin-bottom:6px}
+.ma-value{font-size:1.1rem;font-weight:bold;margin-bottom:8px}
+.ma-diff{font-size:1.4rem;font-weight:bold}
+.ma-diff.up{color:#00c853}
+.ma-diff.down{color:#ff4444}
+.ma-status{font-size:.75rem;color:#666;margin-top:4px}
 .error{color:#ff4444;text-align:center;padding:20px}
 .loading{color:#aaa;text-align:center;padding:20px}
 #result{display:none}
-.section-label{color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:1px;margin:20px 0 8px}
 </style>
 </head>
 <body>
-<h1>📊 BIST Analiz</h1>
+<h1>📊 BIST Teknik Analiz</h1>
 <div class="search">
 <input type="text" id="ti" placeholder="Hisse kodu (örn: THYAO)" maxlength="10"/>
 <button id="btn">Analiz Et</button>
@@ -42,16 +41,6 @@ h1{color:#f0b90b;text-align:center;margin-bottom:24px}
 <script>
 document.getElementById('btn').addEventListener('click', run);
 document.getElementById('ti').addEventListener('keypress', function(e){ if(e.key==='Enter') run(); });
-
-function fmt(n) { return n !== null && n !== undefined ? n : '—'; }
-
-function row(label, desc, value, cls) {
-  return '<div class="row"><div class="left"><span class="label">' + label + '</span><span class="desc">' + desc + '</span></div><span class="badge ' + cls + '">' + value + '</span></div>';
-}
-
-function vrow(label, desc, value, cls) {
-  return '<div class="row"><div class="left"><span class="label">' + label + '</span><span class="desc">' + desc + '</span></div><span class="' + cls + '">' + value + '</span></div>';
-}
 
 async function run() {
   var t = document.getElementById('ti').value.trim().toUpperCase();
@@ -64,46 +53,26 @@ async function run() {
     var d = await res.json();
     if (d.error) { r.innerHTML = '<p class="error">❌ ' + d.error + '</p>'; return; }
 
-    var rc = d.rsi < 30 ? 'green' : d.rsi > 70 ? 'red' : 'yellow';
-    var rl = d.rsi < 30 ? 'Aşırı Satım 🟢' : d.rsi > 70 ? 'Aşırı Alım 🔴' : 'Normal';
-    var vc = d.veryHighVolume ? 'purple' : d.highVolume ? 'green' : 'red';
-    var vl = d.veryHighVolume ? '🔥 Çok Yüksek' : d.highVolume ? '✅ Yüksek' : '😴 Düşük';
-
-    var peVal = d.pe ? d.pe : '—';
-    var peCls = d.pe ? (d.pe < 10 ? 'green' : d.pe < 20 ? 'yellow' : 'red') : 'yellow';
-    var peDesc = d.pe ? (d.pe < 10 ? 'Düşük — potansiyel olarak ucuz' : d.pe < 20 ? 'Orta — makul fiyatlı' : 'Yüksek — pahalı olabilir') : 'Veri yok';
-
-    var pbVal = d.pb ? d.pb : '—';
-    var pbCls = d.pb ? (d.pb < 1 ? 'green' : d.pb < 3 ? 'yellow' : 'red') : 'yellow';
-    var pbDesc = d.pb ? (d.pb < 1 ? 'Defter değerinin altında — değerli olabilir' : d.pb < 3 ? 'Defter değerinin ' + d.pb + ' katı — normal' : 'Defter değerinin çok üstünde') : 'Veri yok';
-
-    var dyVal = d.dividendYield ? '%' + d.dividendYield : '—';
-    var dyCls = d.dividendYield ? (d.dividendYield > 5 ? 'green' : d.dividendYield > 2 ? 'yellow' : 'red') : 'yellow';
-    var dyDesc = d.dividendYield ? (d.dividendYield > 5 ? 'Yüksek temettü verimi' : d.dividendYield > 2 ? 'Orta temettü verimi' : 'Düşük temettü verimi') : 'Temettü yok veya veri yok';
-
-    var w52Desc = d.week52High && d.week52Low ? '52 hafta aralığı: ₺' + d.week52Low + ' — ₺' + d.week52High : 'Veri yok';
-    var w52Pos = d.week52High && d.week52Low ? Math.round(((d.currentPrice - d.week52Low) / (d.week52High - d.week52Low)) * 100) : null;
-    var w52Val = w52Pos !== null ? '%' + w52Pos + ' konumda' : '—';
-    var w52Cls = w52Pos !== null ? (w52Pos > 70 ? 'red' : w52Pos < 30 ? 'green' : 'yellow') : 'yellow';
-
-    var mcap = d.marketCap ? (d.marketCap / 1e9).toFixed(1) + ' Milyar ₺' : '—';
+    var maBoxes = d.mas.map(function(m) {
+      var cls = m.above ? 'up' : 'down';
+      var sign = m.diff >= 0 ? '+' : '';
+      var status = m.above ? 'Fiyat üstünde' : 'Fiyat altında';
+      return '<div class="ma-box ' + cls + '">' +
+        '<div class="ma-name">MA' + m.period + '</div>' +
+        '<div class="ma-value">₺' + m.value + '</div>' +
+        '<div class="ma-diff ' + cls + '">' + sign + m.diff + '%</div>' +
+        '<div class="ma-status">' + status + '</div>' +
+      '</div>';
+    }).join('');
 
     r.innerHTML =
-      '<div class="card">' +
-        '<div class="card-title">📈 ' + d.ticker + ' — ₺' + d.currentPrice + '</div>' +
-        '<p class="section-label">Teknik Analiz</p>' +
-        row('MA200 (' + d.ma200 + ')', d.aboveMA200 ? 'Fiyat uzun vadeli ortalamanın üstünde — yükseliş trendi' : 'Fiyat uzun vadeli ortalamanın altında — dikkatli olun', d.aboveMA200 ? '✅ Üstünde' : '❌ Altında', d.aboveMA200 ? 'green' : 'red') +
-        row('MA50 (' + d.ma50 + ')', d.aboveMA50 ? 'Kısa vadeli momentum pozitif' : 'Kısa vadeli momentum negatif', d.aboveMA50 ? '✅ Üstünde' : '❌ Altında', d.aboveMA50 ? 'green' : 'red') +
-        row('RSI (14)', 'RSI 30 altı aşırı satım (alım fırsatı olabilir), 70 üstü aşırı alım (düzeltme gelebilir)', rl, rc) +
-        row('Hacim', 'Güncel hacmin son 20 günlük ortalamaya oranı. Yüksek hacim güçlü ilgiyi gösterir', vl, vc) +
+      '<div class="price-header">' +
+        '<div class="tk">📈 ' + d.ticker + '</div>' +
+        '<div class="pr">₺' + d.currentPrice + '</div>' +
       '</div>' +
-      '<div class="card">' +
-        '<p class="section-label">Temel Analiz</p>' +
-        row('F/K Oranı', 'Fiyat/Kazanç: Piyasanın her 1 TL kazanç için ödediği fiyat. ' + peDesc, peVal, peCls) +
-        row('PD/DD Oranı', 'Piyasa Değeri / Defter Değeri: 1 altı hissenin defter değerinin altında işlem gördüğünü gösterir. ' + pbDesc, pbVal, pbCls) +
-        row('Temettü Verimi', 'Hisse başına ödenen temettünün fiyata oranı. Yüksek verim pasif gelir için cazip. ' + dyDesc, dyVal, dyCls) +
-        row('52H Pozisyon', w52Desc + '. 52 haftalık aralıkta nerede olduğunu gösterir', w52Val, w52Cls) +
-        row('Piyasa Değeri', 'Şirketin borsa üzerindeki toplam değeri', mcap, 'yellow') +
+      '<div class="section">' +
+        '<div class="section-title">Hareketli Ortalamalar (Fiyatın MA\'ya uzaklığı)</div>' +
+        '<div class="grid">' + maBoxes + '</div>' +
       '</div>';
 
   } catch(e) {
