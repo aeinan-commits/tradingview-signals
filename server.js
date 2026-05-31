@@ -29,12 +29,13 @@ app.get('/signals', (req, res) => {
 app.get('/analyze/:ticker', async (req, res) => {
   try {
     const ticker = req.params.ticker.toUpperCase() + '.IS';
+    const tickerClean = req.params.ticker.toUpperCase();
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept': 'application/json'
     };
 
-    // Chart verisi (teknik analiz)
+    // Chart verisi
     const chartRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`, { headers });
     const chartData = await chartRes.json();
 
@@ -66,26 +67,34 @@ app.get('/analyze/:ticker', async (req, res) => {
     const week52High = meta.fiftyTwoWeekHigh || null;
     const week52Low = meta.fiftyTwoWeekLow || null;
 
-    // Temel analiz - v7 quote endpoint
+    // Temel analiz - Investing.com
     let pe = null, pb = null, marketCap = null, dividendYield = null;
     try {
-      const quoteRes = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`, { headers });
-      const quoteData = await quoteRes.json();
-      console.log('Quote v7:', JSON.stringify(quoteData).substring(0, 400));
+      const invRes = await fetch(`https://tr.investing.com/equities/${tickerClean.toLowerCase()}-ratios`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'tr-TR,tr;q=0.9',
+          'Referer': 'https://tr.investing.com'
+        }
+      });
+      const html = await invRes.text();
+      console.log('Investing status:', invRes.status, html.substring(0, 200));
 
-      const q = quoteData?.quoteResponse?.result?.[0];
-      if (q) {
-        pe = q.trailingPE || null;
-        pb = q.priceToBook || null;
-        marketCap = q.marketCap || null;
-        dividendYield = q.trailingAnnualDividendYield || null;
-      }
+      // F/K
+      const peMatch = html.match(/F\/K[^>]*>[\s]*([0-9]+\.?[0-9]*)/);
+      if (peMatch) pe = parseFloat(peMatch[1]);
+
+      // PD/DD
+      const pbMatch = html.match(/PD\/DD[^>]*>[\s]*([0-9]+\.?[0-9]*)/);
+      if (pbMatch) pb = parseFloat(pbMatch[1]);
+
     } catch(e) {
-      console.log('Quote hatası:', e.message);
+      console.log('Investing hatası:', e.message);
     }
 
     res.json({
-      ticker: req.params.ticker.toUpperCase(),
+      ticker: tickerClean,
       currentPrice: currentPrice.toFixed(2),
       ma200: ma200.toFixed(2),
       ma50: ma50.toFixed(2),
@@ -96,10 +105,10 @@ app.get('/analyze/:ticker', async (req, res) => {
       aboveMA50: currentPrice > ma50,
       highVolume: currentVol > avgVol,
       veryHighVolume: currentVol > avgVol * 2,
-      pe: pe ? parseFloat(pe.toFixed(1)) : null,
-      pb: pb ? parseFloat(pb.toFixed(2)) : null,
+      pe: pe || null,
+      pb: pb || null,
       marketCap,
-      dividendYield: dividendYield ? parseFloat((dividendYield * 100).toFixed(2)) : null,
+      dividendYield,
       week52High: week52High ? parseFloat(week52High.toFixed(2)) : null,
       week52Low: week52Low ? parseFloat(week52Low.toFixed(2)) : null
     });
