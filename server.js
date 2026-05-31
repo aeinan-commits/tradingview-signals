@@ -67,30 +67,27 @@ app.get('/analyze/:ticker', async (req, res) => {
     const week52High = meta.fiftyTwoWeekHigh || null;
     const week52Low = meta.fiftyTwoWeekLow || null;
 
-    // Temel analiz - Investing.com
+    // Temel analiz - IsYatirim
     let pe = null, pb = null, marketCap = null, dividendYield = null;
     try {
-      const invRes = await fetch(`https://tr.investing.com/equities/${tickerClean.toLowerCase()}-ratios`, {
+      const isRes = await fetch(`https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/sirket-karti.aspx?hisse=${tickerClean}`, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml',
-          'Accept-Language': 'tr-TR,tr;q=0.9',
-          'Referer': 'https://tr.investing.com'
+          'Accept': 'text/html',
+          'Accept-Language': 'tr-TR,tr;q=0.9'
         }
       });
-      const html = await invRes.text();
-      console.log('Investing status:', invRes.status, html.substring(0, 200));
+      const html = await isRes.text();
+      console.log('IsYatirim status:', isRes.status, html.substring(0, 300));
 
-      // F/K
-      const peMatch = html.match(/F\/K[^>]*>[\s]*([0-9]+\.?[0-9]*)/);
-      if (peMatch) pe = parseFloat(peMatch[1]);
+      const peMatch = html.match(/F\/K.*?<[^>]+>([\d,\.]+)/s);
+      if (peMatch) pe = parseFloat(peMatch[1].replace(',', '.'));
 
-      // PD/DD
-      const pbMatch = html.match(/PD\/DD[^>]*>[\s]*([0-9]+\.?[0-9]*)/);
-      if (pbMatch) pb = parseFloat(pbMatch[1]);
+      const pbMatch = html.match(/PD\/DD.*?<[^>]+>([\d,\.]+)/s);
+      if (pbMatch) pb = parseFloat(pbMatch[1].replace(',', '.'));
 
     } catch(e) {
-      console.log('Investing hatası:', e.message);
+      console.log('IsYatirim hatası:', e.message);
     }
 
     res.json({
