@@ -36,6 +36,34 @@ function ema(arr, period) {
   return emaVal;
 }
 
+// Fiyat+Hacim ilişkisini belirli bir periyot için hesapla
+function priceVolSignal(closes, vols, days, avgVol20) {
+  const len = closes.length;
+  // Fiyat yönü: bugün vs 'days' gün önce
+  const priceNow = closes[len - 1];
+  const priceThen = closes[len - 1 - days];
+  const priceUp = priceNow > priceThen;
+  const pricePct = ((priceNow - priceThen) / priceThen) * 100;
+
+  // Hacim: son 'days' gün ortalaması vs 20 günlük ortalama
+  const recentVolAvg = vols.slice(-days).reduce((a, b) => a + b, 0) / days;
+  const volAboveAvg = recentVolAvg > avgVol20;
+
+  let signal;
+  if (priceUp && volAboveAvg) signal = 'strong_up';
+  else if (priceUp && !volAboveAvg) signal = 'weak_up';
+  else if (!priceUp && volAboveAvg) signal = 'strong_down';
+  else signal = 'weak_down';
+
+  return {
+    signal,
+    priceUp,
+    pricePct: parseFloat(pricePct.toFixed(2)),
+    volAboveAvg,
+    recentVolAvg: Math.round(recentVolAvg)
+  };
+}
+
 app.get('/analyze/:ticker', async (req, res) => {
   try {
     const ticker = req.params.ticker.toUpperCase() + '.IS';
@@ -59,7 +87,6 @@ app.get('/analyze/:ticker', async (req, res) => {
     const vols = valid.map(x => x.v);
     const currentPrice = closes[closes.length - 1];
     const currentVol = vols[vols.length - 1];
-    const prevPrice = closes[closes.length - 2];
 
     // EMA
     const periods = [5, 20, 50, 100, 200];
@@ -84,23 +111,19 @@ app.get('/analyze/:ticker', async (req, res) => {
     }
     const rsi = 100 - (100 / (1 + gains / (losses || 1)));
 
-    // ===== HACİM ANALİZİ =====
+    // ===== HACİM =====
     const avgVol20 = vols.slice(-20).reduce((a, b) => a + b, 0) / 20;
     const avgVol5 = vols.slice(-5).reduce((a, b) => a + b, 0) / 5;
-
-    // 1. Hacim oranı (bugün / 20 günlük ortalama)
     const volRatio = currentVol / avgVol20;
 
-    // 2. Fiyat + Hacim ilişkisi
-    const priceUp = currentPrice > prevPrice;
-    const volAboveAvg = currentVol > avgVol20;
-    let priceVolSignal;
-    if (priceUp && volAboveAvg) priceVolSignal = 'strong_up';      // yükseliş + yüksek hacim
-    else if (priceUp && !volAboveAvg) priceVolSignal = 'weak_up';   // yükseliş + düşük hacim
-    else if (!priceUp && volAboveAvg) priceVolSignal = 'strong_down'; // düşüş + yüksek hacim
-    else priceVolSignal = 'weak_down';                              // düşüş + düşük hacim
+    // Fiyat+Hacim ilişkisi - üç periyot için
+    const priceVol = {
+      d1: priceVolSignal(closes, vols, 1, avgVol20),
+      d5: priceVolSignal(closes, vols, 5, avgVol20),
+      d20: priceVolSignal(closes, vols, 20, avgVol20)
+    };
 
-    // 3. Hacim trendi (son 5 gün ort vs son 20 gün ort)
+    // Hacim trendi
     const volTrendPct = ((avgVol5 - avgVol20) / avgVol20) * 100;
     let volTrend;
     if (volTrendPct > 15) volTrend = 'rising';
@@ -120,8 +143,7 @@ app.get('/analyze/:ticker', async (req, res) => {
         avg20: Math.round(avgVol20),
         avg5: Math.round(avgVol5),
         ratio: parseFloat(volRatio.toFixed(2)),
-        priceVolSignal,
-        priceUp,
+        priceVol,
         trend: volTrend,
         trendPct: parseFloat(volTrendPct.toFixed(1))
       },
