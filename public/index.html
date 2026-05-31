@@ -62,9 +62,8 @@
       try {
         const symbol = ticker + '.IS';
         const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1y&cors=true`;
-        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-        const json = await res.json();
-        const data = JSON.parse(json.contents);
+        const res = await fetch(`/analyze/${ticker}`);
+        const data = await res.json();
 
         if (!data.chart.result) {
           result.innerHTML = '<p class="error">❌ Hisse bulunamadı</p>';
