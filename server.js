@@ -45,7 +45,7 @@ app.get('/analyze/:ticker', async (req, res) => {
       'Accept': 'application/json'
     };
 
-    const chartRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2y`, { headers });
+    const chartRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=5y`, { headers });
     const chartData = await chartRes.json();
 
     if (!chartData.chart || !chartData.chart.result || !chartData.chart.result[0]) {
