@@ -31,7 +31,13 @@ app.get('/signals', (req, res) => {
 app.get('/analyze/:ticker', async (req, res) => {
   try {
     const ticker = req.params.ticker.toUpperCase() + '.IS';
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y&includePrePost=false&events=div%2Csplit`;
+    const response = await fetch(url, {
+      headers: {
+       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+       'Accept': 'application/json'
+  }
+});
     
     const response = await fetch(url);
     const data = await response.json();
