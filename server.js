@@ -34,7 +34,26 @@ app.get('/analyze/:ticker', async (req, res) => {
       'Accept': 'application/json'
     };
 
-    // Fiyat ve teknik veri
+    // Adım 1: Cookie ve crumb al
+    let crumb = null;
+    let cookie = null;
+    try {
+      const cookieRes = await fetch('https://fc.yahoo.com', { headers });
+      const setCookie = cookieRes.headers.get('set-cookie');
+      if (setCookie) {
+        cookie = setCookie.split(';')[0];
+        console.log('Cookie:', cookie);
+      }
+      const crumbRes = await fetch('https://query2.finance.yahoo.com/v1/test/getcrumb', {
+        headers: { ...headers, 'Cookie': cookie || '' }
+      });
+      crumb = await crumbRes.text();
+      console.log('Crumb:', crumb);
+    } catch(e) {
+      console.log('Crumb hatası:', e.message);
+    }
+
+    // Adım 2: Chart verisi
     const chartRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`, { headers });
     const chartData = await chartRes.json();
 
@@ -63,17 +82,20 @@ app.get('/analyze/:ticker', async (req, res) => {
     const rsi = 100 - (100 / (1 + gains / (losses || 1)));
     const avgVol = vols.slice(-20).reduce((a, b) => a + b, 0) / 20;
 
-    // 52 hafta meta'dan
     const week52High = meta.fiftyTwoWeekHigh || null;
     const week52Low = meta.fiftyTwoWeekLow || null;
 
-    // Temel analiz - query2
+    // Adım 3: Temel analiz (crumb ile)
     let pe = null, pb = null, marketCap = null, dividendYield = null;
     try {
-      const summaryRes = await fetch(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=defaultKeyStatistics,summaryDetail`, { headers });
+      const summaryUrl = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=defaultKeyStatistics,summaryDetail${crumb ? '&crumb=' + encodeURIComponent(crumb) : ''}`;
+      const summaryRes = await fetch(summaryUrl, {
+        headers: { ...headers, ...(cookie ? { 'Cookie': cookie } : {}) }
+      });
       const summaryData = await summaryRes.json();
-      console.log('Summary:', JSON.stringify(summaryData).substring(0, 400));
-      if (summaryData.quoteSummary && summaryData.quoteSummary.result && summaryData.quoteSummary.result[0]) {
+      console.log('Summary:', JSON.stringify(summaryData).substring(0, 300));
+
+      if (summaryData.quoteSummary?.result?.[0]) {
         const sd = summaryData.quoteSummary.result[0].summaryDetail;
         const ks = summaryData.quoteSummary.result[0].defaultKeyStatistics;
         pe = sd?.trailingPE?.raw || null;
