@@ -25,17 +25,14 @@
     .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #2a2a2a; }
     .row:last-child { border-bottom: none; }
     .label { color: #aaa; font-size: 0.9rem; }
-    .value { font-size: 0.95rem; font-weight: bold; }
-    .green { color: #00c853; }
-    .red { color: #ff4444; }
-    .yellow { color: #f0b90b; }
-    .badge {
-      padding: 4px 10px; border-radius: 20px;
-      font-size: 0.8rem; font-weight: bold;
-    }
+    .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
     .badge.green { background: #00c85322; color: #00c853; }
     .badge.red { background: #ff444422; color: #ff4444; }
+    .badge.yellow { background: #f0b90b22; color: #f0b90b; }
     .badge.purple { background: #9c27b022; color: #ce93d8; }
+    .value.green { color: #00c853; }
+    .value.red { color: #ff4444; }
+    .value.yellow { color: #f0b90b; }
     .error { color: #ff4444; text-align: center; padding: 20px; }
     .loading { color: #aaa; text-align: center; padding: 20px; }
     #result { display: none; }
@@ -43,12 +40,10 @@
 </head>
 <body>
   <h1>📊 BIST Analiz</h1>
-
   <div class="search">
     <input type="text" id="tickerInput" placeholder="Hisse kodu (örn: THYAO)" maxlength="10" />
     <button onclick="analyze()">Analiz Et</button>
   </div>
-
   <div id="result"></div>
 
   <script>
@@ -65,26 +60,95 @@
       result.innerHTML = '<p class="loading">⏳ Veriler yükleniyor...</p>';
 
       try {
-        const res = await fetch(`/analyze/${ticker}`);
-        const d = await res.json();
+        const symbol = ticker + '.IS';
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1y&cors=true`;
+        const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+        const data = await res.json();
 
-        if (d.error) {
-          result.innerHTML = `<p class="error">❌ ${d.error}</p>`;
+        if (!data.chart.result) {
+          result.innerHTML = '<p class="error">❌ Hisse bulunamadı</p>';
           return;
         }
 
-        const rsiColor = d.rsi < 30 ? 'green' : d.rsi > 70 ? 'red' : 'yellow';
-        const rsiLabel = d.rsi < 30 ? 'Aşırı Satım' : d.rsi > 70 ? 'Aşırı Alım' : 'Normal';
-        const volLabel = d.veryHighVolume ? 'Çok Yüksek' : d.highVolume ? 'Yüksek' : 'Normal';
-        const volColor = d.veryHighVolume ? 'purple' : d.highVolume ? 'green' : 'red';
+        const quotes = data.chart.result[0].indicators.quote[0];
+        const prices = quotes.close;
+        const volumes = quotes.volume;
+
+        const valid = prices.map((p, i) => ({ p, v: volumes[i] })).filter(x => x.p !== null && x.v !== null);
+        const closes = valid.map(x => x.p);
+        const vols = valid.map(x => x.v);
+
+        const currentPrice = closes[closes.length - 1];
+        const currentVol = vols[vols.length - 1];
+
+        // MA200
+        const ma200arr = closes.slice(-200);
+        const ma200 = ma200arr.reduce((a, b) => a + b, 0) / ma200arr.length;
+
+        // MA50
+        const ma50arr = closes.slice(-50);
+        const ma50 = ma50arr.reduce((a, b) => a + b, 0) / ma50arr.length;
+
+        // RSI 14
+        const rsiArr = closes.slice(-15);
+        let gains = 0, losses = 0;
+        for (let i = 1; i < rsiArr.length; i++) {
+          const diff = rsiArr[i] - rsiArr[i - 1];
+          if (diff > 0) gains += diff;
+          else losses += Math.abs(diff);
+        }
+        const rsi = 100 - (100 / (1 + gains / (losses || 1)));
+
+        // Hacim
+        const avgVol = vols.slice(-20).reduce((a, b) => a + b, 0) / 20;
+        const highVol = currentVol > avgVol;
+        const veryHighVol = currentVol > avgVol * 2;
+
+        const rsiColor = rsi < 30 ? 'green' : rsi > 70 ? 'red' : 'yellow';
+        const rsiLabel = rsi < 30 ? 'Aşırı Satım' : rsi > 70 ? 'Aşırı Alım' : 'Normal';
+        const volColor = veryHighVol ? 'purple' : highVol ? 'green' : 'red';
+        const volLabel = veryHighVol ? 'Çok Yüksek' : highVol ? 'Yüksek' : 'Normal';
 
         result.innerHTML = `
           <div class="card">
-            <div class="card-title">📈 ${d.ticker} — ₺${d.currentPrice}</div>
+            <div class="card-title">📈 ${ticker} — ₺${currentPrice.toFixed(2)}</div>
             <div class="row">
-              <span class="label">MA200 (${d.ma200})</span>
-              <span class="badge ${d.aboveMA200 ? 'green' : 'red'}">${d.aboveMA200 ? '✅ Üstünde' : '❌ Altında'}</span>
+              <span class="label">MA200 (${ma200.toFixed(2)})</span>
+              <span class="badge ${currentPrice > ma200 ? 'green' : 'red'}">${currentPrice > ma200 ? '✅ Üstünde' : '❌ Altında'}</span>
             </div>
             <div class="row">
-              <span class="label">MA50 (${d.ma50})</span>
-              <span class="badge ${d.aboveMA50 ? 'green' : 'red'}">${d.aboveMA50 ? '✅ Üstünde' : '❌ Altında'}</span>
+              <span class="label">MA50 (${ma50.toFixed(2)})</span>
+              <span class="badge ${currentPrice > ma50 ? 'green' : 'red'}">${currentPrice > ma50 ? '✅ Üstünde' : '❌ Altında'}</span>
+            </div>
+            <div class="row">
+              <span class="label">RSI (14)</span>
+              <span class="badge ${rsiColor}">${rsi.toFixed(1)} — ${rsiLabel}</span>
+            </div>
+            <div class="row">
+              <span class="label">Hacim</span>
+              <span class="badge ${volColor}">${volLabel}</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">🔍 Genel Değerlendirme</div>
+            <div class="row">
+              <span class="label">Trend</span>
+              <span class="value ${currentPrice > ma200 ? 'green' : 'red'}">${currentPrice > ma200 ? '📈 Yükseliş trendi' : '📉 Düşüş trendi'}</span>
+            </div>
+            <div class="row">
+              <span class="label">Momentum</span>
+              <span class="value ${currentPrice > ma50 ? 'green' : 'red'}">${currentPrice > ma50 ? '💪 Güçlü' : '⚠️ Zayıf'}</span>
+            </div>
+            <div class="row">
+              <span class="label">Hacim Sinyali</span>
+              <span class="value ${veryHighVol ? 'yellow' : highVol ? 'green' : 'red'}">${veryHighVol ? '🔥 Çok güçlü ilgi' : highVol ? '✅ Ortalamanın üstünde' : '😴 Düşük ilgi'}</span>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        result.innerHTML = '<p class="error">❌ Veri alınamadı: ' + err.message + '</p>';
+      }
+    }
+  </script>
+</body>
+</html>
