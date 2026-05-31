@@ -7,7 +7,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-const ALPHA_KEY = '4FO7QHSOROV1J3XV';
 let signals = [];
 
 app.post('/webhook', (req, res) => {
@@ -30,34 +29,35 @@ app.get('/signals', (req, res) => {
 app.get('/analyze/:ticker', async (req, res) => {
   try {
     const ticker = req.params.ticker.toUpperCase() + '.IS';
-    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=full&apikey=${ALPHA_KEY}`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`;
 
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json'
+      }
+    });
+
     const data = await response.json();
 
-    console.log('Alpha yanıtı:', JSON.stringify(data).substring(0, 300));
-
-    if (data['Note'] || data['Information']) {
-      return res.status(500).json({ error: 'API limit aşıldı, biraz bekleyin' });
-    }
-
-    if (!data['Time Series (Daily)']) {
+    if (!data.chart || !data.chart.result || !data.chart.result[0]) {
       return res.status(500).json({ error: 'Hisse bulunamadı: ' + ticker });
     }
 
-    const series = data['Time Series (Daily)'];
-    const dates = Object.keys(series).sort();
-    const closes = dates.map(d => parseFloat(series[d]['4. close']));
-    const volumes = dates.map(d => parseFloat(series[d]['5. volume']));
+    const quote = data.chart.result[0].indicators.quote[0];
+    const timestamps = data.chart.result[0].timestamp;
 
+    const valid = quote.close.map((p, i) => ({
+      p, v: quote.volume[i]
+    })).filter(x => x.p !== null && x.v !== null);
+
+    const closes = valid.map(x => x.p);
+    const vols = valid.map(x => x.v);
     const currentPrice = closes[closes.length - 1];
-    const currentVol = volumes[volumes.length - 1];
+    const currentVol = vols[vols.length - 1];
 
-    const ma200arr = closes.slice(-200);
-    const ma200 = ma200arr.reduce((a, b) => a + b, 0) / ma200arr.length;
-
-    const ma50arr = closes.slice(-50);
-    const ma50 = ma50arr.reduce((a, b) => a + b, 0) / ma50arr.length;
+    const ma200 = closes.slice(-200).reduce((a, b) => a + b, 0) / Math.min(closes.length, 200);
+    const ma50 = closes.slice(-50).reduce((a, b) => a + b, 0) / Math.min(closes.length, 50);
 
     const rsiArr = closes.slice(-15);
     let gains = 0, losses = 0;
@@ -68,7 +68,7 @@ app.get('/analyze/:ticker', async (req, res) => {
     }
     const rsi = 100 - (100 / (1 + gains / (losses || 1)));
 
-    const avgVol = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20;
+    const avgVol = vols.slice(-20).reduce((a, b) => a + b, 0) / 20;
 
     res.json({
       ticker: req.params.ticker.toUpperCase(),
