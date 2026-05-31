@@ -22,13 +22,11 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 .section-title{color:#888;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;border-bottom:1px solid #2a2a2a;padding-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
 .grid{display:flex;flex-wrap:wrap;gap:12px}
 .ma-box{flex:1;min-width:150px;background:#1a1a1a;border-radius:12px;padding:16px;border-top:3px solid #333}
-.ma-box.up{border-top-color:#00c853}
-.ma-box.down{border-top-color:#ff4444}
+.ma-box.up{border-top-color:#00c853}.ma-box.down{border-top-color:#ff4444}
 .ma-name{color:#aaa;font-size:.8rem;font-weight:bold;margin-bottom:6px}
 .ma-value{font-size:1.1rem;font-weight:bold;margin-bottom:8px}
 .ma-diff{font-size:1.4rem;font-weight:bold}
-.ma-diff.up{color:#00c853}
-.ma-diff.down{color:#ff4444}
+.ma-diff.up{color:#00c853}.ma-diff.down{color:#ff4444}
 .ma-status{font-size:.75rem;color:#666;margin-top:4px}
 .vol-box{flex:1;min-width:220px;background:#1a1a1a;border-radius:12px;padding:18px;border-left:4px solid #333}
 .vol-box.green{border-left-color:#00c853}.vol-box.red{border-left-color:#ff4444}.vol-box.purple{border-left-color:#9c27b0}.vol-box.yellow{border-left-color:#f0b90b}
@@ -47,10 +45,10 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 .rsi-scale{display:flex;justify-content:space-between;font-size:.7rem;color:#666}
 .rsi-desc{font-size:.85rem;color:#888;line-height:1.5;margin-top:12px}
 .sig-box{flex:1;min-width:280px;background:#1a1a1a;border-radius:12px;padding:20px;border-left:4px solid #333}
-.sig-box.green{border-left-color:#00c853}.sig-box.red{border-left-color:#ff4444}
+.sig-box.green{border-left-color:#00c853}.sig-box.red{border-left-color:#ff4444}.sig-box.yellow{border-left-color:#f0b90b}
 .sig-label{color:#aaa;font-size:.85rem;font-weight:bold;margin-bottom:10px}
 .sig-main{font-size:1.6rem;font-weight:bold;margin-bottom:6px}
-.sig-main.green{color:#00c853}.sig-main.red{color:#ff4444}
+.sig-main.green{color:#00c853}.sig-main.red{color:#ff4444}.sig-main.yellow{color:#f0b90b}
 .sig-sub{font-size:1rem;color:#aaa;margin-bottom:10px}
 .sig-desc{font-size:.85rem;color:#888;line-height:1.5}
 .st-box{background:#1a1a1a;border-radius:12px;padding:22px;border-left:5px solid #333}
@@ -130,7 +128,6 @@ function pvText(pv, days){
   else{cls='yellow';title='🔸 Zayıf Düşüş';desc='Son '+days+' barda fiyat %'+pct+' düştü AMA hacim düşük. Panik yok.';}
   return {cls:cls,title:title,desc:desc};
 }
-
 function renderPriceVol(){
   if(!lastData)return;
   var v=lastData.volume, dayMap={d1:1,d5:5,d20:20}, pv=v.priceVol[selectedPeriod], t=pvText(pv,dayMap[selectedPeriod]);
@@ -154,41 +151,6 @@ async function run(keepTicker){
     var d=await res.json();
     if(d.error){ r.innerHTML='<p class="error">❌ '+d.error+'</p>'; return; }
     lastData=d;
-
-    // ICHIMOKU
-    var ichBox='';
-    if(d.ichimoku){
-      var ic=d.ichimoku;
-      var posCls=ic.pricePos;
-      var posMain, posVerdict;
-      if(ic.pricePos==='above'){ posMain='🟢 Bulutun ÜSTÜNDE'; posVerdict='Fiyat Ichimoku bulutunun üstünde — bu yükseliş trendinin en güçlü işaretidir. Bulut (₺'+ic.cloudBottom+' - ₺'+ic.cloudTop+') şu an altta destek bölgesi olarak çalışıyor.'; }
-      else if(ic.pricePos==='below'){ posMain='🔴 Bulutun ALTINDA'; posVerdict='Fiyat Ichimoku bulutunun altında — düşüş trendi baskın. Bulut (₺'+ic.cloudBottom+' - ₺'+ic.cloudTop+') şu an üstte direnç bölgesi olarak çalışıyor. Yukarı dönüş için fiyatın buluta girip üstüne çıkması gerekir.'; }
-      else { posMain='🟡 Bulutun İÇİNDE'; posVerdict='Fiyat bulutun içinde — kararsızlık bölgesi. Trend net değil, fiyat bulutun üstüne çıkana (yükseliş) veya altına inene (düşüş) kadar yön belirsiz. Bu bölgede işlem riskli olabilir.'; }
-
-      var tkText, tkDesc;
-      if(ic.tkCross==='bull'){ tkText='<b style="color:#00c853">Pozitif (Tenkan > Kijun)</b>'; tkDesc='Dönüş çizgisi temel çizginin üstünde — kısa vadeli momentum yukarı yönlü, alım sinyali destekliyor.'; }
-      else if(ic.tkCross==='bear'){ tkText='<b style="color:#ff4444">Negatif (Tenkan < Kijun)</b>'; tkDesc='Dönüş çizgisi temel çizginin altında — kısa vadeli momentum aşağı yönlü, satış baskısı var.'; }
-      else { tkText='<b>Nötr</b>'; tkDesc='Çizgiler eşit, belirgin sinyal yok.'; }
-
-      var cloudBadge=ic.cloudColor==='green'?'<span class="cloud-badge green">YEŞİL ☁️</span>':'<span class="cloud-badge red">KIRMIZI ☁️</span>';
-      var cloudDesc=ic.cloudColor==='green'?'Önümüzdeki bulut yeşil (Senkou A > Senkou B) — gelecek beklentisi pozitif, trend yukarı yönlü destekleniyor.':'Önümüzdeki bulut kırmızı (Senkou A < Senkou B) — gelecek beklentisi negatif, düşüş eğilimi destekleniyor.';
-
-      ichBox=
-        '<div class="ich-wrap '+posCls+'">'+
-          '<div class="ich-main '+posCls+'">'+posMain+'</div>'+
-          '<div class="ich-verdict">'+posVerdict+'</div>'+
-          '<div class="ich-lines">'+
-            '<div class="ich-line"><div class="ich-line-name">TENKAN (9)</div><div class="ich-line-val">₺'+ic.tenkan+'</div></div>'+
-            '<div class="ich-line"><div class="ich-line-name">KIJUN (26)</div><div class="ich-line-val">₺'+ic.kijun+'</div></div>'+
-            '<div class="ich-line"><div class="ich-line-name">SENKOU A</div><div class="ich-line-val">₺'+ic.senkouA+'</div></div>'+
-            '<div class="ich-line"><div class="ich-line-name">SENKOU B</div><div class="ich-line-val">₺'+ic.senkouB+'</div></div>'+
-          '</div>'+
-          '<div class="ich-sub">Tenkan / Kijun Kesişimi: '+tkText+'<br>'+tkDesc+'</div>'+
-          '<div class="ich-sub">Bulut Rengi: '+cloudBadge+'<br>'+cloudDesc+'</div>'+
-        '</div>';
-    } else {
-      ichBox='<div class="ich-wrap"><div class="vol-desc">Bu zaman dilimi için yeterli veri yok (en az 52 bar gerekli).</div></div>';
-    }
 
     // DESTEK / DİRENÇ
     var sr=d.supportResistance, srRows='';
@@ -221,7 +183,6 @@ async function run(keepTicker){
     else if(v.obvSignal==='confirm_down'){obvCls='red';obvText='❌ Dağıtım';obvDesc='OBV düşüyor, fiyat da düşüyor. Para çıkışı düşüşü doğruluyor.';}
     else if(v.obvSignal==='bull_div'){obvCls='purple';obvText='🔼 Gizli Alım';obvDesc='Fiyat düşerken OBV yükseliyor! Pozitif uyumsuzluk, dönüş sinyali olabilir.';}
     else{obvCls='yellow';obvText='🔽 Gizli Satım';obvDesc='Fiyat yükselirken OBV düşüyor. Negatif uyumsuzluk, dikkat.';}
-
     var volBoxes=
       '<div class="vol-box '+ratioCls+'"><div class="vol-label">Hacim Oranı</div><div class="vol-main '+ratioCls+'">'+ratioText+'</div><div class="vol-desc">'+ratioDesc+'<br><br>Şimdi: '+fmtVol(v.current)+' | 20 Ort: '+fmtVol(v.avg20)+'</div></div>'+
       '<div class="vol-box" id="pvBox"></div>'+
@@ -235,13 +196,36 @@ async function run(keepTicker){
     else if(rsi>70){rsiCls='#ff4444';rsiLabel='Aşırı Alım';rsiLabelColor='#ff444422';rsiDesc='RSI 70 üstünde — hisse aşırı alınmış. Kâr satışı/düzeltme gelebilir.';}
     else{rsiCls='#f0b90b';rsiLabel='Nötr';rsiLabelColor='#f0b90b22';rsiDesc='RSI 30-70 arası nötr bölgede. Belirgin aşırılık yok.';}
     var rsiBox='<div class="rsi-box"><div class="rsi-top"><span class="rsi-val" style="color:'+rsiCls+'">'+rsi+'</span><span class="rsi-label" style="background:'+rsiLabelColor+';color:'+rsiCls+'">'+rsiLabel+'</span></div><div class="rsi-track"><div class="rsi-marker" style="left:'+rsi+'%"></div></div><div class="rsi-scale"><span>0</span><span>30</span><span>70</span><span>100</span></div><div class="rsi-desc">'+rsiDesc+'</div></div>';
-
     var sigBox;
     if(d.rsiSignal!==null){
       var above=d.rsiAboveSignal, sigCls=above?'green':'red', pct=d.rsiVsSignalPct>=0?'+'+d.rsiVsSignalPct:d.rsiVsSignalPct;
       var sigDesc=above?'RSI, 9 barlık ortalamasının üstünde. Momentum yukarı dönüyor.':'RSI, 9 barlık ortalamasının altında. Momentum aşağı dönüyor.';
       sigBox='<div class="sig-box '+sigCls+'"><div class="sig-label">RSI vs 9 Bar Ortalaması</div><div class="sig-main '+sigCls+'">'+(above?'▲ Üstünde':'▼ Altında')+'</div><div class="sig-sub">RSI: '+rsi+' | 9B Ort: '+d.rsiSignal+' ('+pct+'%)</div><div class="sig-desc">'+sigDesc+'</div></div>';
     } else { sigBox='<div class="sig-box"><div class="sig-label">RSI Sinyal Çizgisi</div><div class="sig-desc">Yeterli veri yok</div></div>'; }
+
+    // MOMENTUM
+    var momBoxes='';
+    if(d.momentum){
+      var mo=d.momentum;
+      var moSigCls,moSigTitle,moSigDesc;
+      if(mo.signal==='strong_up'){moSigCls='green';moSigTitle='📈 Güçlü Pozitif';moSigDesc='Momentum sıfırın üstünde ve artıyor. Fiyat son 10 bara göre hızlanarak yükseliyor — güçlü yukarı ivme.';}
+      else if(mo.signal==='weak_up'){moSigCls='yellow';moSigTitle='⚠️ Zayıflayan Pozitif';moSigDesc='Momentum sıfırın üstünde ama ivme azalıyor. Yükseliş sürüyor fakat güç kaybediyor — dikkatli olun.';}
+      else if(mo.signal==='strong_down'){moSigCls='red';moSigTitle='📉 Güçlü Negatif';moSigDesc='Momentum sıfırın altında ve düşüyor. Fiyat son 10 bara göre hızlanarak geriliyor — güçlü aşağı ivme.';}
+      else{moSigCls='yellow';moSigTitle='🔸 Zayıflayan Negatif';moSigDesc='Momentum sıfırın altında ama düşüş ivmesi azalıyor. Dip oluşumu/toparlanma başlangıcı olabilir.';}
+
+      var moSmaCls=mo.aboveSMA?'green':'red';
+      var moSmaTitle=mo.aboveSMA?'▲ Ortalamanın Üstünde':'▼ Ortalamanın Altında';
+      var pctTxt=(mo.vsSMApct>=0?'+':'')+mo.vsSMApct+'%';
+      var moSmaDesc=mo.aboveSMA
+        ? 'Momentum, kendi 15 barlık ortalamasının üstünde (mevcut ivme son dönemin ortalamasından güçlü). Bu, momentumun hızlandığını ve trendin tazelendiğini gösterir.'
+        : 'Momentum, kendi 15 barlık ortalamasının altında (mevcut ivme son dönemin ortalamasından zayıf). Bu, momentumun yavaşladığını ve trendin gücünü yitirdiğini gösterir.';
+
+      momBoxes=
+        '<div class="sig-box '+moSigCls+'"><div class="sig-label">Momentum (10 Bar)</div><div class="sig-main '+moSigCls+'">'+moSigTitle+'</div><div class="sig-sub">Değer: '+(mo.value>=0?'+':'')+mo.value+' '+(mo.positive?'(sıfır üstü)':'(sıfır altı)')+'</div><div class="sig-desc">'+moSigDesc+'</div></div>'+
+        '<div class="sig-box '+moSmaCls+'"><div class="sig-label">Momentum vs 15 Bar Ortalaması</div><div class="sig-main '+moSmaCls+'">'+moSmaTitle+'</div><div class="sig-sub">Momentum: '+(mo.value>=0?'+':'')+mo.value+' | 15B Ort: '+(mo.sma>=0?'+':'')+mo.sma+' ('+pctTxt+')</div><div class="sig-desc">'+moSmaDesc+'</div></div>';
+    } else {
+      momBoxes='<div class="sig-box"><div class="sig-label">Momentum</div><div class="sig-desc">Yeterli veri yok</div></div>';
+    }
 
     // SUPERTREND
     var stBox='';
@@ -252,14 +236,31 @@ async function run(keepTicker){
       stBox='<div class="st-box '+stCls+'"><div class="st-top"><span class="st-main '+stCls+'">'+stMain+'</span><span class="st-sub">Çizgi: ₺'+st.value+' ('+stDist+'% mesafe) | ATR: '+st.atr+'</span></div><div class="st-desc">'+stDesc+'</div></div>';
     }
 
+    // ICHIMOKU
+    var ichBox='';
+    if(d.ichimoku){
+      var ic=d.ichimoku, posCls=ic.pricePos, posMain, posVerdict;
+      if(ic.pricePos==='above'){ posMain='🟢 Bulutun ÜSTÜNDE'; posVerdict='Fiyat Ichimoku bulutunun üstünde — yükseliş trendinin en güçlü işareti. Bulut (₺'+ic.cloudBottom+' - ₺'+ic.cloudTop+') altta destek bölgesi olarak çalışıyor.'; }
+      else if(ic.pricePos==='below'){ posMain='🔴 Bulutun ALTINDA'; posVerdict='Fiyat bulutun altında — düşüş trendi baskın. Bulut (₺'+ic.cloudBottom+' - ₺'+ic.cloudTop+') üstte direnç bölgesi. Dönüş için fiyatın buluta girip üstüne çıkması gerekir.'; }
+      else { posMain='🟡 Bulutun İÇİNDE'; posVerdict='Fiyat bulutun içinde — kararsızlık bölgesi. Trend net değil; üstüne çıkması (yükseliş) veya altına inmesi (düşüş) beklenir. Bu bölgede işlem riskli.'; }
+      var tkText,tkDesc;
+      if(ic.tkCross==='bull'){ tkText='<b style="color:#00c853">Pozitif (Tenkan > Kijun)</b>'; tkDesc='Dönüş çizgisi temel çizginin üstünde — kısa vadeli momentum yukarı, alım sinyalini destekliyor.'; }
+      else if(ic.tkCross==='bear'){ tkText='<b style="color:#ff4444">Negatif (Tenkan < Kijun)</b>'; tkDesc='Dönüş çizgisi temel çizginin altında — kısa vadeli momentum aşağı, satış baskısı var.'; }
+      else { tkText='<b>Nötr</b>'; tkDesc='Çizgiler eşit, belirgin sinyal yok.'; }
+      var cloudBadge=ic.cloudColor==='green'?'<span class="cloud-badge green">YEŞİL ☁️</span>':'<span class="cloud-badge red">KIRMIZI ☁️</span>';
+      var cloudDesc=ic.cloudColor==='green'?'Önümüzdeki bulut yeşil (Senkou A > Senkou B) — gelecek beklentisi pozitif.':'Önümüzdeki bulut kırmızı (Senkou A < Senkou B) — gelecek beklentisi negatif.';
+      ichBox='<div class="ich-wrap '+posCls+'"><div class="ich-main '+posCls+'">'+posMain+'</div><div class="ich-verdict">'+posVerdict+'</div><div class="ich-lines"><div class="ich-line"><div class="ich-line-name">TENKAN (9)</div><div class="ich-line-val">₺'+ic.tenkan+'</div></div><div class="ich-line"><div class="ich-line-name">KIJUN (26)</div><div class="ich-line-val">₺'+ic.kijun+'</div></div><div class="ich-line"><div class="ich-line-name">SENKOU A</div><div class="ich-line-val">₺'+ic.senkouA+'</div></div><div class="ich-line"><div class="ich-line-name">SENKOU B</div><div class="ich-line-val">₺'+ic.senkouB+'</div></div></div><div class="ich-sub">Tenkan / Kijun Kesişimi: '+tkText+'<br>'+tkDesc+'</div><div class="ich-sub">Bulut Rengi: '+cloudBadge+'<br>'+cloudDesc+'</div></div>';
+    } else { ichBox='<div class="ich-wrap"><div class="vol-desc">Bu zaman dilimi için yeterli veri yok (en az 52 bar gerekli).</div></div>'; }
+
     r.innerHTML=
       '<div class="price-header"><div class="tk">📈 '+d.ticker+'</div><div class="pr">₺'+d.currentPrice+'</div><div class="tf">'+tfLabels[d.timeframe]+' grafik</div></div>'+
-      '<div class="section"><div class="section-title">Ichimoku Bulutu — Kapsamlı Trend Analizi</div>'+ichBox+'</div>'+
       '<div class="section"><div class="section-title">Destek / Direnç Seviyeleri</div>'+srBox+'</div>'+
       '<div class="section"><div class="section-title">Üstel Hareketli Ortalamalar (EMA)</div><div class="grid">'+maBoxes+'</div></div>'+
       '<div class="section"><div class="section-title"><span>Hacim Analizi</span><div class="period-btns"><button id="pb_d1" onclick="setPeriod(\'d1\')">1 Bar</button><button id="pb_d5" onclick="setPeriod(\'d5\')">5 Bar</button><button id="pb_d20" onclick="setPeriod(\'d20\')">20 Bar</button></div></div><div class="grid">'+volBoxes+'</div></div>'+
       '<div class="section"><div class="section-title">RSI (14) — Göreceli Güç Endeksi</div><div class="grid">'+rsiBox+sigBox+'</div></div>'+
-      '<div class="section"><div class="section-title">Supertrend — Trend Yönü</div>'+stBox+'</div>';
+      '<div class="section"><div class="section-title">Momentum (10) + 15 Bar Ortalaması</div><div class="grid">'+momBoxes+'</div></div>'+
+      '<div class="section"><div class="section-title">Supertrend — Trend Yönü</div>'+stBox+'</div>'+
+      '<div class="section"><div class="section-title">Ichimoku Bulutu — Kapsamlı Trend Analizi</div>'+ichBox+'</div>';
 
     selectedPeriod='d1';
     renderPriceVol();
