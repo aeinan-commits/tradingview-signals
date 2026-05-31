@@ -58,6 +58,67 @@ function calcRSISeries(closes, period) {
   return rsiArr.filter(x => x !== undefined && x !== null);
 }
 
+// Supertrend (ATR tabanlı)
+function calcSupertrend(highs, lows, closes, period, mult) {
+  const n = closes.length;
+  if (n < period + 1) return null;
+
+  // True Range
+  const tr = [0];
+  for (let i = 1; i < n; i++) {
+    const t = Math.max(
+      highs[i] - lows[i],
+      Math.abs(highs[i] - closes[i - 1]),
+      Math.abs(lows[i] - closes[i - 1])
+    );
+    tr.push(t);
+  }
+
+  // ATR (Wilder smoothing)
+  const atr = [];
+  let firstATR = tr.slice(1, period + 1).reduce((a, b) => a + b, 0) / period;
+  atr[period] = firstATR;
+  for (let i = period + 1; i < n; i++) {
+    atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period;
+  }
+
+  // Supertrend hesabı
+  let trendDir = 1; // 1 = yukarı, -1 = aşağı
+  let finalUpper = 0, finalLower = 0;
+  let prevUpper = 0, prevLower = 0;
+  let supertrendVal = 0;
+
+  for (let i = period; i < n; i++) {
+    const hl2 = (highs[i] + lows[i]) / 2;
+    const basicUpper = hl2 + mult * atr[i];
+    const basicLower = hl2 - mult * atr[i];
+
+    finalUpper = (basicUpper < prevUpper || closes[i - 1] > prevUpper) ? basicUpper : prevUpper;
+    finalLower = (basicLower > prevLower || closes[i - 1] < prevLower) ? basicLower : prevLower;
+
+    if (i === period) {
+      trendDir = closes[i] > hl2 ? 1 : -1;
+    } else {
+      if (trendDir === 1 && closes[i] < finalLower) trendDir = -1;
+      else if (trendDir === -1 && closes[i] > finalUpper) trendDir = 1;
+    }
+
+    supertrendVal = trendDir === 1 ? finalLower : finalUpper;
+    prevUpper = finalUpper;
+    prevLower = finalLower;
+  }
+
+  const currentPrice = closes[n - 1];
+  const dist = ((currentPrice - supertrendVal) / supertrendVal) * 100;
+
+  return {
+    direction: trendDir === 1 ? 'up' : 'down',
+    value: parseFloat(supertrendVal.toFixed(2)),
+    dist: parseFloat(dist.toFixed(2)),
+    atr: parseFloat(atr[n - 1].toFixed(2))
+  };
+}
+
 function priceVolSignal(closes, vols, days, avgVol20) {
   const len = closes.length;
   if (len <= days) days = len - 1;
@@ -91,23 +152,19 @@ function resampleTo4h(closes, vols, highs, lows) {
   return { closes: nc, vols: nv, highs: nh, lows: nl };
 }
 
-// Pivot tabanlı destek/direnç
 function findSupportResistance(highs, lows, currentPrice, lookback) {
   const n = highs.length;
   const start = Math.max(0, n - lookback);
-  const win = 3; // pivot için sol/sağ bar sayısı
+  const win = 3;
   const resistances = [];
   const supports = [];
 
   for (let i = start + win; i < n - win; i++) {
-    // Yerel tepe (direnç)
     let isHigh = true;
     for (let j = 1; j <= win; j++) {
       if (highs[i] <= highs[i - j] || highs[i] <= highs[i + j]) { isHigh = false; break; }
     }
     if (isHigh) resistances.push(highs[i]);
-
-    // Yerel dip (destek)
     let isLow = true;
     for (let j = 1; j <= win; j++) {
       if (lows[i] >= lows[i - j] || lows[i] >= lows[i + j]) { isLow = false; break; }
@@ -115,7 +172,6 @@ function findSupportResistance(highs, lows, currentPrice, lookback) {
     if (isLow) supports.push(lows[i]);
   }
 
-  // Yakın seviyeleri grupla (% 1.5 içinde olanları birleştir)
   function cluster(levels) {
     levels.sort((a, b) => a - b);
     const groups = [];
@@ -129,8 +185,6 @@ function findSupportResistance(highs, lows, currentPrice, lookback) {
 
   const resClusters = cluster(resistances).filter(r => r.level > currentPrice);
   const supClusters = cluster(supports).filter(s => s.level < currentPrice);
-
-  // Fiyata en yakın 3 direnç (üstte) ve 3 destek (altta)
   resClusters.sort((a, b) => a.level - b.level);
   supClusters.sort((a, b) => b.level - a.level);
 
@@ -176,7 +230,6 @@ app.get('/analyze/:ticker', async (req, res) => {
       return res.status(500).json({ error: 'Hisse bulunamadı: ' + ticker });
     }
 
-    const meta = chartData.chart.result[0].meta;
     const quote = chartData.chart.result[0].indicators.quote[0];
     let valid = quote.close.map((p, i) => ({
       p, v: quote.volume[i], h: quote.high[i], l: quote.low[i]
@@ -192,14 +245,13 @@ app.get('/analyze/:ticker', async (req, res) => {
       closes = r.closes; vols = r.vols; highs = r.highs; lows = r.lows;
     }
 
-    if (closes.length < 10) {
+    if (closes.length < 15) {
       return res.status(500).json({ error: 'Bu zaman dilimi için yeterli veri yok' });
     }
 
     const currentPrice = closes[closes.length - 1];
     const currentVol = vols[vols.length - 1];
 
-    // EMA
     const periods = [5, 20, 50, 100, 200];
     const mas = periods.map(p => {
       const value = ema(closes, p);
@@ -207,7 +259,6 @@ app.get('/analyze/:ticker', async (req, res) => {
       return { period: p, value: parseFloat(value.toFixed(2)), above: currentPrice > value, diff: parseFloat(diff.toFixed(2)) };
     });
 
-    // RSI
     const rsiSeries = calcRSISeries(closes, 14);
     const rsi = rsiSeries[rsiSeries.length - 1];
     let rsiSignal = null, rsiVsSignalPct = null, rsiAboveSignal = null;
@@ -218,7 +269,9 @@ app.get('/analyze/:ticker', async (req, res) => {
       rsiVsSignalPct = ((rsi - rsiSignal) / rsiSignal) * 100;
     }
 
-    // HACİM
+    // SUPERTREND
+    const supertrend = calcSupertrend(highs, lows, closes, 10, 3);
+
     const avgVol20 = vols.slice(-20).reduce((a, b) => a + b, 0) / Math.min(vols.length, 20);
     const avgVol5 = vols.slice(-5).reduce((a, b) => a + b, 0) / Math.min(vols.length, 5);
     const volRatio = currentVol / avgVol20;
@@ -254,7 +307,6 @@ app.get('/analyze/:ticker', async (req, res) => {
     else if (obvRising && !priceRising20) obvSignal = 'bull_div';
     else obvSignal = 'bear_div';
 
-    // DESTEK / DİRENÇ
     const sr = findSupportResistance(highs, lows, currentPrice, cfg.lookback);
 
     res.json({
@@ -266,6 +318,7 @@ app.get('/analyze/:ticker', async (req, res) => {
       rsiSignal: rsiSignal !== null ? parseFloat(rsiSignal.toFixed(1)) : null,
       rsiAboveSignal,
       rsiVsSignalPct: rsiVsSignalPct !== null ? parseFloat(rsiVsSignalPct.toFixed(2)) : null,
+      supertrend,
       volume: {
         current: currentVol, avg20: Math.round(avgVol20), avg5: Math.round(avgVol5),
         ratio: parseFloat(volRatio.toFixed(2)), priceVol, trend: volTrend,
