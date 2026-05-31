@@ -56,17 +56,23 @@ function calcRSISeries(closes, period) {
   return rsiArr.filter(x => x !== undefined && x !== null);
 }
 
+// Momentum (fiyat - N bar önceki fiyat) serisi
+function calcMomentumSeries(closes, period) {
+  const mom = [];
+  for (let i = period; i < closes.length; i++) {
+    mom.push(closes[i] - closes[i - period]);
+  }
+  return mom;
+}
+
 function calcSupertrend(highs, lows, closes, period, mult) {
   const n = closes.length;
   if (n < period + 1) return null;
   const tr = [0];
-  for (let i = 1; i < n; i++) {
-    tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
-  }
+  for (let i = 1; i < n; i++) tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
   const atr = [];
   atr[period] = tr.slice(1, period + 1).reduce((a, b) => a + b, 0) / period;
   for (let i = period + 1; i < n; i++) atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period;
-
   let trendDir = 1, finalUpper = 0, finalLower = 0, prevUpper = 0, prevLower = 0, supertrendVal = 0;
   for (let i = period; i < n; i++) {
     const hl2 = (highs[i] + lows[i]) / 2;
@@ -87,39 +93,23 @@ function calcSupertrend(highs, lows, closes, period, mult) {
   return { direction: trendDir === 1 ? 'up' : 'down', value: parseFloat(supertrendVal.toFixed(2)), dist: parseFloat(dist.toFixed(2)), atr: parseFloat(atr[n - 1].toFixed(2)) };
 }
 
-// Ichimoku
 function calcIchimoku(highs, lows, closes) {
   const n = closes.length;
   if (n < 52) return null;
-  function midpoint(arr, start, len) {
-    const slice = arr.slice(start, start + len);
-    return (Math.max(...slice) + Math.min(...slice)) / 2;
-  }
-  const tenkan = midpoint(highs, n - 9, 9) === midpoint(lows, n - 9, 9) ? 0 :
-    (Math.max(...highs.slice(n - 9)) + Math.min(...lows.slice(n - 9))) / 2;
+  const tenkan = (Math.max(...highs.slice(n - 9)) + Math.min(...lows.slice(n - 9))) / 2;
   const kijun = (Math.max(...highs.slice(n - 26)) + Math.min(...lows.slice(n - 26))) / 2;
   const senkouA = (tenkan + kijun) / 2;
   const senkouB = (Math.max(...highs.slice(n - 52)) + Math.min(...lows.slice(n - 52))) / 2;
   const currentPrice = closes[n - 1];
-
   const cloudTop = Math.max(senkouA, senkouB);
   const cloudBottom = Math.min(senkouA, senkouB);
-
-  let pricePos;
-  if (currentPrice > cloudTop) pricePos = 'above';
-  else if (currentPrice < cloudBottom) pricePos = 'below';
-  else pricePos = 'inside';
-
+  let pricePos = currentPrice > cloudTop ? 'above' : currentPrice < cloudBottom ? 'below' : 'inside';
   const cloudColor = senkouA >= senkouB ? 'green' : 'red';
   const tkCross = tenkan > kijun ? 'bull' : tenkan < kijun ? 'bear' : 'neutral';
-
   return {
-    tenkan: parseFloat(tenkan.toFixed(2)),
-    kijun: parseFloat(kijun.toFixed(2)),
-    senkouA: parseFloat(senkouA.toFixed(2)),
-    senkouB: parseFloat(senkouB.toFixed(2)),
-    cloudTop: parseFloat(cloudTop.toFixed(2)),
-    cloudBottom: parseFloat(cloudBottom.toFixed(2)),
+    tenkan: parseFloat(tenkan.toFixed(2)), kijun: parseFloat(kijun.toFixed(2)),
+    senkouA: parseFloat(senkouA.toFixed(2)), senkouB: parseFloat(senkouB.toFixed(2)),
+    cloudTop: parseFloat(cloudTop.toFixed(2)), cloudBottom: parseFloat(cloudBottom.toFixed(2)),
     pricePos, cloudColor, tkCross
   };
 }
@@ -218,7 +208,7 @@ app.get('/analyze/:ticker', async (req, res) => {
       const r = resampleTo4h(closes, vols, highs, lows);
       closes = r.closes; vols = r.vols; highs = r.highs; lows = r.lows;
     }
-    if (closes.length < 15) return res.status(500).json({ error: 'Bu zaman dilimi için yeterli veri yok' });
+    if (closes.length < 30) return res.status(500).json({ error: 'Bu zaman dilimi için yeterli veri yok' });
 
     const currentPrice = closes[closes.length - 1];
     const currentVol = vols[vols.length - 1];
@@ -238,6 +228,33 @@ app.get('/analyze/:ticker', async (req, res) => {
       rsiSignal = last9.reduce((a, b) => a + b, 0) / 9;
       rsiAboveSignal = rsi > rsiSignal;
       rsiVsSignalPct = ((rsi - rsiSignal) / rsiSignal) * 100;
+    }
+
+    // MOMENTUM (10) + 15 barlık SMA
+    let momentum = null;
+    const momSeries = calcMomentumSeries(closes, 10);
+    if (momSeries.length >= 15) {
+      const momNow = momSeries[momSeries.length - 1];
+      const momPrev = momSeries[momSeries.length - 2];
+      const last15 = momSeries.slice(-15);
+      const momSMA = last15.reduce((a, b) => a + b, 0) / 15;
+      const aboveSMA = momNow > momSMA;
+      // SMA'ya yüzde uzaklık (mutlak değere göre, işaret korunur)
+      const vsSMApct = momSMA !== 0 ? ((momNow - momSMA) / Math.abs(momSMA)) * 100 : 0;
+      // Sinyal: momentum sıfırın üstünde/altında + yönü
+      let signal;
+      if (momNow > 0 && momNow > momPrev) signal = 'strong_up';
+      else if (momNow > 0 && momNow <= momPrev) signal = 'weak_up';
+      else if (momNow < 0 && momNow < momPrev) signal = 'strong_down';
+      else signal = 'weak_down';
+      momentum = {
+        value: parseFloat(momNow.toFixed(2)),
+        sma: parseFloat(momSMA.toFixed(2)),
+        aboveSMA,
+        vsSMApct: parseFloat(vsSMApct.toFixed(1)),
+        signal,
+        positive: momNow > 0
+      };
     }
 
     const supertrend = calcSupertrend(highs, lows, closes, 10, 3);
@@ -273,7 +290,7 @@ app.get('/analyze/:ticker', async (req, res) => {
       mas, rsi: parseFloat(rsi.toFixed(1)),
       rsiSignal: rsiSignal !== null ? parseFloat(rsiSignal.toFixed(1)) : null,
       rsiAboveSignal, rsiVsSignalPct: rsiVsSignalPct !== null ? parseFloat(rsiVsSignalPct.toFixed(2)) : null,
-      supertrend, ichimoku,
+      momentum, supertrend, ichimoku,
       volume: { current: currentVol, avg20: Math.round(avgVol20), avg5: Math.round(avgVol5), ratio: parseFloat(volRatio.toFixed(2)), priceVol, trend: volTrend, trendPct: parseFloat(volTrendPct.toFixed(1)), posPct: parseFloat(volPosPct.toFixed(0)), max50: Math.round(max50Vol), obvSignal, obvRising },
       supportResistance: sr
     });
