@@ -26,6 +26,12 @@ app.get('/signals', (req, res) => {
   res.json(signals);
 });
 
+function sma(arr, period) {
+  if (arr.length < period) period = arr.length;
+  const slice = arr.slice(-period);
+  return slice.reduce((a, b) => a + b, 0) / slice.length;
+}
+
 app.get('/analyze/:ticker', async (req, res) => {
   try {
     const ticker = req.params.ticker.toUpperCase() + '.IS';
@@ -35,8 +41,7 @@ app.get('/analyze/:ticker', async (req, res) => {
       'Accept': 'application/json'
     };
 
-    // Chart verisi
-    const chartRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y`, { headers });
+    const chartRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2y`, { headers });
     const chartData = await chartRes.json();
 
     if (!chartData.chart || !chartData.chart.result || !chartData.chart.result[0]) {
@@ -51,9 +56,20 @@ app.get('/analyze/:ticker', async (req, res) => {
     const currentPrice = closes[closes.length - 1];
     const currentVol = vols[vols.length - 1];
 
-    const ma200 = closes.slice(-200).reduce((a, b) => a + b, 0) / Math.min(closes.length, 200);
-    const ma50 = closes.slice(-50).reduce((a, b) => a + b, 0) / Math.min(closes.length, 50);
+    // Hareketli ortalamalar
+    const periods = [5, 20, 50, 100, 200];
+    const mas = periods.map(p => {
+      const value = sma(closes, p);
+      const diff = ((currentPrice - value) / value) * 100;
+      return {
+        period: p,
+        value: parseFloat(value.toFixed(2)),
+        above: currentPrice > value,
+        diff: parseFloat(diff.toFixed(2))
+      };
+    });
 
+    // RSI
     const rsiArr = closes.slice(-15);
     let gains = 0, losses = 0;
     for (let i = 1; i < rsiArr.length; i++) {
@@ -67,67 +83,15 @@ app.get('/analyze/:ticker', async (req, res) => {
     const week52High = meta.fiftyTwoWeekHigh || null;
     const week52Low = meta.fiftyTwoWeekLow || null;
 
-    // Temel analiz - IsYatirim
-    let pe = null, pb = null, fdsatis = null, fdfavok = null, dividendYield = null, marketCap = null;
-    try {
-      const isRes = await fetch(`https://www.isyatirim.com.tr/tr-tr/analiz/hisse/Sayfalar/sirket-karti.aspx?hisse=${tickerClean}`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html',
-          'Accept-Language': 'tr-TR,tr;q=0.9'
-        }
-      });
-      const html = await isRes.text();
-      console.log('IsYatirim status:', isRes.status);
-
-      // Tüm sayısal değerleri label ile çek
-      const pairs = [];
-      const rowRegex = /<span[^>]*title="([^"]+)"[^>]*>[\s\S]*?<span[^>]*>([\d,\.]+)<\/span>/g;
-      let m;
-      while ((m = rowRegex.exec(html)) !== null) {
-        pairs.push({ label: m[1], value: parseFloat(m[2].replace(',', '.')) });
-      }
-      console.log('Pairs:', JSON.stringify(pairs.slice(0, 20)));
-
-      pairs.forEach(p => {
-        if (p.label.includes('F/K')) pe = p.value;
-        if (p.label.includes('PD/DD')) pb = p.value;
-        if (p.label.includes('FD/Satış')) fdsatis = p.value;
-        if (p.label.includes('FD/FAVÖK') || p.label.includes('FD/FAVOK')) fdfavok = p.value;
-      });
-
-      // Alternatif regex
-      if (!pe) {
-        const peM = html.match(/["'>]F\/K["'<][^>]*>\s*([\d,\.]+)/);
-        if (peM) pe = parseFloat(peM[1].replace(',', '.'));
-      }
-      if (!pb) {
-        const pbM = html.match(/["'>]PD\/DD["'<][^>]*>\s*([\d,\.]+)/);
-        if (pbM) pb = parseFloat(pbM[1].replace(',', '.'));
-      }
-
-    } catch(e) {
-      console.log('IsYatirim hatası:', e.message);
-    }
-
     res.json({
       ticker: tickerClean,
-      currentPrice: currentPrice.toFixed(2),
-      ma200: ma200.toFixed(2),
-      ma50: ma50.toFixed(2),
-      rsi: rsi.toFixed(1),
+      currentPrice: parseFloat(currentPrice.toFixed(2)),
+      mas,
+      rsi: parseFloat(rsi.toFixed(1)),
       currentVol,
       avgVol: Math.round(avgVol),
-      aboveMA200: currentPrice > ma200,
-      aboveMA50: currentPrice > ma50,
       highVolume: currentVol > avgVol,
       veryHighVolume: currentVol > avgVol * 2,
-      pe: pe || null,
-      pb: pb || null,
-      fdsatis: fdsatis || null,
-      fdfavok: fdfavok || null,
-      marketCap,
-      dividendYield,
       week52High: week52High ? parseFloat(week52High.toFixed(2)) : null,
       week52Low: week52Low ? parseFloat(week52Low.toFixed(2)) : null
     });
