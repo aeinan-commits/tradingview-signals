@@ -59,8 +59,9 @@ app.get('/analyze/:ticker', async (req, res) => {
     const vols = valid.map(x => x.v);
     const currentPrice = closes[closes.length - 1];
     const currentVol = vols[vols.length - 1];
+    const prevPrice = closes[closes.length - 2];
 
-    // Üstel hareketli ortalamalar (EMA)
+    // EMA
     const periods = [5, 20, 50, 100, 200];
     const mas = periods.map(p => {
       const value = ema(closes, p);
@@ -82,7 +83,29 @@ app.get('/analyze/:ticker', async (req, res) => {
       else losses += Math.abs(diff);
     }
     const rsi = 100 - (100 / (1 + gains / (losses || 1)));
-    const avgVol = vols.slice(-20).reduce((a, b) => a + b, 0) / 20;
+
+    // ===== HACİM ANALİZİ =====
+    const avgVol20 = vols.slice(-20).reduce((a, b) => a + b, 0) / 20;
+    const avgVol5 = vols.slice(-5).reduce((a, b) => a + b, 0) / 5;
+
+    // 1. Hacim oranı (bugün / 20 günlük ortalama)
+    const volRatio = currentVol / avgVol20;
+
+    // 2. Fiyat + Hacim ilişkisi
+    const priceUp = currentPrice > prevPrice;
+    const volAboveAvg = currentVol > avgVol20;
+    let priceVolSignal;
+    if (priceUp && volAboveAvg) priceVolSignal = 'strong_up';      // yükseliş + yüksek hacim
+    else if (priceUp && !volAboveAvg) priceVolSignal = 'weak_up';   // yükseliş + düşük hacim
+    else if (!priceUp && volAboveAvg) priceVolSignal = 'strong_down'; // düşüş + yüksek hacim
+    else priceVolSignal = 'weak_down';                              // düşüş + düşük hacim
+
+    // 3. Hacim trendi (son 5 gün ort vs son 20 gün ort)
+    const volTrendPct = ((avgVol5 - avgVol20) / avgVol20) * 100;
+    let volTrend;
+    if (volTrendPct > 15) volTrend = 'rising';
+    else if (volTrendPct < -15) volTrend = 'falling';
+    else volTrend = 'stable';
 
     const week52High = meta.fiftyTwoWeekHigh || null;
     const week52Low = meta.fiftyTwoWeekLow || null;
@@ -92,10 +115,16 @@ app.get('/analyze/:ticker', async (req, res) => {
       currentPrice: parseFloat(currentPrice.toFixed(2)),
       mas,
       rsi: parseFloat(rsi.toFixed(1)),
-      currentVol,
-      avgVol: Math.round(avgVol),
-      highVolume: currentVol > avgVol,
-      veryHighVolume: currentVol > avgVol * 2,
+      volume: {
+        current: currentVol,
+        avg20: Math.round(avgVol20),
+        avg5: Math.round(avgVol5),
+        ratio: parseFloat(volRatio.toFixed(2)),
+        priceVolSignal,
+        priceUp,
+        trend: volTrend,
+        trendPct: parseFloat(volTrendPct.toFixed(1))
+      },
       week52High: week52High ? parseFloat(week52High.toFixed(2)) : null,
       week52Low: week52Low ? parseFloat(week52Low.toFixed(2)) : null
     });
