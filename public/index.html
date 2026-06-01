@@ -478,7 +478,9 @@ async function run(keepTicker){
           else if(rr>=1){rrCls='#f0b90b';rrText='Kabul edilebilir ('+rr.toFixed(1)+':1) — Kazanç riskten büyük ama ideal değil.';}
           else if(rr>0){rrCls='#ff4444';rrText='Zayıf ('+rr.toFixed(1)+':1) — Risk, potansiyel kazançtan büyük. Alım için uygun değil.';}
           else{rrCls='#888';rrText='Hesaplanamadı.';}
-          rrLine='<div style="margin-top:12px;padding:10px 14px;background:#ff444415;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="color:#ff4444;font-weight:bold;font-size:1rem">⚠️ Alım Fırsatı Değil</span><span style="color:#aaa;font-size:.85rem;flex:1">Skor aşağı yönlü, olası hedef mevcut fiyatın altında. BIST\'te açığa satış yapılamadığı için burada bir kazanç senaryosu yok — beklemek veya uzak durmak mantıklı. Düşüş biterse ve skor yukarı dönerse tekrar değerlendirin.</span></div>';
+          rrLine='<div style="margin-top:12px;padding:10px 14px;background:'+rrCls+'15;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="color:'+rrCls+';font-weight:bold;font-size:1.1rem">⚖️ R/R '+rr.toFixed(1)+':1</span><span style="color:#aaa;font-size:.85rem;flex:1">'+rrText+'</span></div>';
+        } else {
+          rrLine='<div style="margin-top:12px;padding:10px 14px;background:#ff444415;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span style="color:#ff4444;font-weight:bold;font-size:1rem">⚠️ Alım Fırsatı Değil</span><span style="color:#aaa;font-size:.85rem;flex:1">Olası hedef mevcut fiyatın altında. BIST\'te açığa satış yapılamadığı için burada bir kazanç senaryosu yok — beklemek veya uzak durmak mantıklı. Hedef yukarı dönerse tekrar değerlendirin.</span></div>';
         }
         if(strength<0.05){
           targetLine='<div style="background:#0f0f0f;border-radius:10px;padding:14px;margin-bottom:16px;text-align:center"><div style="color:#f0b90b;font-size:1rem;font-weight:bold">⚖️ Yön Nötr — Net Hedef Yok</div><div class="vol-desc" style="margin-top:4px">Skor dengede; belirgin bir hedef yön üretilemiyor. Aşağıdaki seviyeleri izleyin.</div></div>';
