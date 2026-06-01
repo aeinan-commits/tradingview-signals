@@ -146,6 +146,44 @@ function updateStar(){
 }
 document.addEventListener('DOMContentLoaded', renderFavs);
 renderFavs();
+// ===== SKOR GEÇMİŞİ (son 3) =====
+function getHist(ticker){ try{ return JSON.parse(localStorage.getItem('bistHist_'+ticker)||'[]'); }catch(e){ return []; } }
+function saveScoreHist(ticker, tf, pct, verdict){
+  if(!ticker) return;
+  try{
+    var h=getHist(ticker);
+    var now=new Date();
+    var stamp=now.toLocaleDateString('tr-TR')+' '+now.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+    // Aynı dakika + aynı TF tekrarını ekleme
+    if(h.length>0 && h[0].stamp===stamp && h[0].tf===tf) return;
+    h.unshift({stamp:stamp, tf:tf, pct:pct, verdict:verdict});
+    if(h.length>3) h=h.slice(0,3);
+    localStorage.setItem('bistHist_'+ticker, JSON.stringify(h));
+  }catch(e){}
+}
+function histPanelHTML(ticker){
+  var h=getHist(ticker);
+  if(h.length<=1) return '<div class="vol-desc" style="padding:10px">Henüz yeterli geçmiş yok. Bu hisseyi farklı zamanlarda analiz ettikçe skor değişimi burada birikecek.</div>';
+  var rows=h.map(function(e,idx){
+    var c=e.pct>=60?'#00c853':e.pct>40?'#f0b90b':'#ff4444';
+    var tag=idx===0?' <span style="font-size:.65rem;color:#666">(en son)</span>':'';
+    return '<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #222"><span style="color:#888;font-size:.8rem;min-width:120px">'+e.stamp+tag+'</span><span style="color:#666;font-size:.75rem;min-width:60px">'+(tfLabels[e.tf]||e.tf)+'</span><span style="color:'+c+';font-weight:bold;min-width:50px">%'+e.pct+'</span><span style="color:'+c+';font-size:.82rem">'+e.verdict+'</span></div>';
+  }).join('');
+  // Trend yorumu (en son vs bir önceki)
+  var trendTxt='';
+  if(h.length>=2){
+    var diff=h[0].pct-h[1].pct;
+    if(diff>3) trendTxt='<div style="color:#00c853;font-size:.85rem;margin-top:8px">↗ Skor son bakışa göre yükseldi (+'+diff+' puan) — sinyaller güçleniyor.</div>';
+    else if(diff<-3) trendTxt='<div style="color:#ff4444;font-size:.85rem;margin-top:8px">↘ Skor son bakışa göre düştü ('+diff+' puan) — sinyaller zayıflıyor.</div>';
+    else trendTxt='<div style="color:#f0b90b;font-size:.85rem;margin-top:8px">→ Skor son bakışa göre yatay (±'+Math.abs(diff)+' puan).</div>';
+  }
+  return rows+trendTxt;
+}
+function toggleHist(){
+  var p=document.getElementById('histPanel');
+  if(!p) return;
+  p.style.display = p.style.display==='none' ? 'block' : 'none';
+}
 var tfLabels={'15m':'15 Dakikalık','1h':'1 Saatlik','4h':'4 Saatlik','1d':'Günlük','1wk':'Haftalık','1mo':'Aylık'};
 
 document.getElementById('btn').addEventListener('click', function(){ run(); });
@@ -385,7 +423,7 @@ async function run(keepTicker){
       var tBadge=vt.trend&&trendStrong?' <span style="font-size:.6rem;color:#9c27b0">×1.5</span>':'';
       return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #222"><span style="color:'+c+';font-size:1rem;width:16px">'+arrow+'</span><span style="min-width:150px;color:#ccc;font-size:.82rem">'+vt.name+tBadge+'</span><span style="color:#888;font-size:.78rem;flex:1">'+vt.detail+'</span><span style="color:'+c+';font-size:.82rem;font-weight:bold;min-width:42px;text-align:right">'+ptTxt+'</span></div>';
     }).join('');
-
+    saveScoreHist(currentTicker, d.timeframe, pct100, verdict);
     var summaryBox='<div style="background:#1a1a1a;border-radius:16px;padding:24px;border:2px solid '+vColor+'">'+
       '<div style="text-align:center;margin-bottom:18px">'+
         '<div style="color:#888;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Genel Özet Skoru'+(trendStrong?' • ADX güçlü trend (×1.5)':'')+'</div>'+
@@ -396,6 +434,8 @@ async function run(keepTicker){
       '<div style="color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Gösterge Oyları ('+votes.length+' sinyal)</div>'+
       voteRows+
       '<div class="vol-desc" style="margin-top:14px">Bu skor tüm göstergelerin ağırlıklı oylarının normalize edilmiş ortalamasıdır (-1 ile +1 arası, %0-100). '+(trendStrong?'ADX≥25 olduğu için trend göstergeleri (EMA, Supertrend, Ichimoku) ×1.5 ağırlıkla sayıldı. ':'')+'Yalnızca bir özettir, kesin al-sat tavsiyesi değildir; kendi değerlendirmenizle birlikte kullanın.</div>'+
+      '<div style="margin-top:14px;text-align:center"><button onclick="toggleHist()" style="background:#0f0f0f;color:#f0b90b;border:1px solid #333;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:.82rem;font-weight:bold">📊 Skor Geçmişi (son 3)</button></div>'+
+      '<div id="histPanel" style="display:none;margin-top:12px;background:#0f0f0f;border-radius:10px;padding:14px">'+histPanelHTML(currentTicker)+'</div>'+
     '</div>';
     // ===== OLASI FİYAT SEVİYELERİ & HEDEF =====
     var targetBox='';
