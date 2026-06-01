@@ -360,45 +360,7 @@ async function run(keepTicker){
       voteRows+
       '<div class="vol-desc" style="margin-top:14px">Bu skor tüm göstergelerin ağırlıklı oylarının normalize edilmiş ortalamasıdır (-1 ile +1 arası, %0-100). '+(trendStrong?'ADX≥25 olduğu için trend göstergeleri (EMA, Supertrend, Ichimoku) ×1.5 ağırlıkla sayıldı. ':'')+'Yalnızca bir özettir, kesin al-sat tavsiyesi değildir; kendi değerlendirmenizle birlikte kullanın.</div>'+
     '</div>';
-    // Mum formasyonu (varsa son yönlü olan)
-    if(d.candlePatterns && d.candlePatterns.patterns && d.candlePatterns.patterns.length>0){
-      var dirPats=d.candlePatterns.patterns.filter(function(p){return p.dir!=='neutral';});
-      if(dirPats.length>0){ var pv=dirPats[0].dir==='bull'?1:-1; addVote('Mum Formasyonu', pv, 1, dirPats[0].name); }
-    }
-
-    var totalScore=0, totalWeight=0;
-    votes.forEach(function(vt){ totalScore+=vt.vote*vt.weight; totalWeight+=vt.weight; });
-    var normScore = totalWeight>0 ? (totalScore/totalWeight) : 0; // -1..+1
-    var pct100 = Math.round(((normScore+1)/2)*100); // 0..100
-    var verdict,vColor,vEmoji;
-    if(normScore>=0.5){verdict='GÜÇLÜ AL';vColor='#00c853';vEmoji='🟢🟢';}
-    else if(normScore>=0.15){verdict='AL';vColor='#00c853';vEmoji='🟢';}
-    else if(normScore>-0.15){verdict='NÖTR';vColor='#f0b90b';vEmoji='🟡';}
-    else if(normScore>-0.5){verdict='SAT';vColor='#ff4444';vEmoji='🔴';}
-    else{verdict='GÜÇLÜ SAT';vColor='#ff4444';vEmoji='🔴🔴';}
-    var upCount=votes.filter(function(v){return v.vote>0;}).length;
-    var downCount=votes.filter(function(v){return v.vote<0;}).length;
-    var neutCount=votes.filter(function(v){return v.vote===0;}).length;
-
-    var voteRows=votes.map(function(vt){
-      var c=vt.vote>0?'#00c853':vt.vote<0?'#ff4444':'#f0b90b';
-      var arrow=vt.vote>0?'▲':vt.vote<0?'▼':'■';
-      var wBadge=vt.weight>1?' <span style="font-size:.65rem;color:#9c27b0">×'+vt.weight+'</span>':'';
-      return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #222"><span style="color:'+c+';font-size:1.1rem;width:18px">'+arrow+'</span><span style="min-width:130px;color:#ccc;font-size:.85rem">'+vt.name+wBadge+'</span><span style="color:#888;font-size:.8rem">'+vt.detail+'</span></div>';
-    }).join('');
-
-    var summaryBox='<div style="background:#1a1a1a;border-radius:16px;padding:24px;border:2px solid '+vColor+'">'+
-      '<div style="text-align:center;margin-bottom:18px">'+
-        '<div style="color:#888;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Genel Özet Skoru'+(trendStrong?' (ADX ağırlıklı)':'')+'</div>'+
-        '<div style="font-size:2.4rem;font-weight:bold;color:'+vColor+'">'+vEmoji+' '+verdict+'</div>'+
-        '<div style="font-size:1rem;color:#aaa;margin-top:6px">Skor: %'+pct100+' &nbsp;|&nbsp; '+upCount+' yükseliş, '+neutCount+' nötr, '+downCount+' düşüş</div>'+
-      '</div>'+
-      '<div class="bar-bg" style="height:14px;margin-bottom:20px;background:linear-gradient(to right,#ff4444,#f0b90b,#00c853)"><div style="height:100%;width:2px;background:#fff;margin-left:'+pct100+'%;box-shadow:0 0 6px #fff"></div></div>'+
-      '<div style="color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Gösterge Oyları</div>'+
-      voteRows+
-      '<div class="vol-desc" style="margin-top:14px">Bu skor tüm göstergelerin oylarının ağırlıklı ortalamasıdır. '+(trendStrong?'ADX güçlü trend gösterdiği için (≥25) trend göstergeleri (EMA, Supertrend, Ichimoku) iki kat sayıldı. ':'')+'Yalnızca bir özettir, kesin al-sat tavsiyesi değildir; her zaman kendi değerlendirmenizle birlikte kullanın.</div>'+
-    '</div>';
-
+    
     var sr=d.supportResistance, srRows='';
     sr.resistances.slice().reverse().forEach(function(rz){ srRows+='<div class="sr-row"><span class="sr-tag res">DİRENÇ</span><span class="sr-level">₺'+rz.level+'</span><span class="sr-dist">+'+rz.dist+'% yukarıda</span><span class="sr-touch">'+rz.touches+' temas</span></div>'; });
     srRows+='<div class="sr-current-row"><div class="sr-row" style="padding:0"><span class="sr-tag cur">FİYAT</span><span class="sr-level">₺'+d.currentPrice+'</span><span class="sr-dist">şu anki fiyat</span></div></div>';
