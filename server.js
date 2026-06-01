@@ -539,7 +539,26 @@ app.get('/analyze/:ticker', async (req, res) => {
       rsiAboveSignal, rsiVsSignalPct: rsiVsSignalPct !== null ? parseFloat(rsiVsSignalPct.toFixed(2)) : null, rsiDivergence: rsiDiv,
       momentum, cci, mfi, macd, bollinger, candlePatterns, adx, mtf, supertrend, ichimoku,
       volume: { current: currentVol, avg20: Math.round(avgVol20), avg5: Math.round(avgVol5), ratio: parseFloat(volRatio.toFixed(2)), priceVol, trend: volTrend, trendPct: parseFloat(volTrendPct.toFixed(1)), posPct: parseFloat(volPosPct.toFixed(0)), max50: Math.round(max50Vol), obvSignal, obvRising, obvDivergence: obvDiv },
-      supportResistance: sr
+      supportResistance: sr,
+      chartData: (function(){
+        const len = closes.length;
+        const start = Math.max(0, len - 100);
+        const slice = closes.slice(start);
+        // EMA serilerini hizalı üret
+        function emaSer(arr, period){
+          const out = []; const k = 2/(period+1); let prev = null;
+          for(let i=0;i<arr.length;i++){
+            if(i<period-1){ out[i]=null; continue; }
+            if(i===period-1){ prev=arr.slice(0,period).reduce((a,b)=>a+b,0)/period; out[i]=prev; }
+            else { prev=arr[i]*k+prev*(1-k); out[i]=prev; }
+          }
+          return out;
+        }
+        const e20=emaSer(closes,20).slice(start);
+        const e50=emaSer(closes,50).slice(start);
+        const e200=emaSer(closes,200).slice(start);
+        return { closes: slice.map(x=>parseFloat(x.toFixed(2))), ema20:e20, ema50:e50, ema200:e200 };
+      })()
     });
   } catch (err) {
     console.log('Hata:', err.message);
