@@ -274,7 +274,7 @@ app.get('/analyze/:ticker', async (req, res) => {
       cci = { value: parseFloat(cn.toFixed(1)), sma: parseFloat(cs.toFixed(1)), aboveSMA, vsSMApct: parseFloat(vsSMApct.toFixed(1)), signal, divergence: detectDivergence(closes, cciAligned, 40) };
     }
 
-    // MFI (14)
+    // MFI (14) + 20 barlık SMA
     let mfi = null;
     const mfiAligned = calcMFISeries(highs, lows, closes, vols, 14);
     const mfiVals = mfiAligned.filter(x => x !== null);
@@ -285,7 +285,20 @@ app.get('/analyze/:ticker', async (req, res) => {
       else if (mfiNow >= 50) signal = 'bullish';
       else if (mfiNow > 20) signal = 'bearish';
       else signal = 'oversold';
-      mfi = { value: parseFloat(mfiNow.toFixed(1)), signal, divergence: detectDivergence(closes, mfiAligned, 40) };
+      let mfiSMA = null, mfiAboveSMA = null, mfiVsSMApct = null;
+      if (mfiVals.length >= 20) {
+        mfiSMA = mfiVals.slice(-20).reduce((a, b) => a + b, 0) / 20;
+        mfiAboveSMA = mfiNow > mfiSMA;
+        mfiVsSMApct = mfiSMA !== 0 ? ((mfiNow - mfiSMA) / mfiSMA) * 100 : 0;
+      }
+      mfi = {
+        value: parseFloat(mfiNow.toFixed(1)),
+        signal,
+        sma: mfiSMA !== null ? parseFloat(mfiSMA.toFixed(1)) : null,
+        aboveSMA: mfiAboveSMA,
+        vsSMApct: mfiVsSMApct !== null ? parseFloat(mfiVsSMApct.toFixed(1)) : null,
+        divergence: detectDivergence(closes, mfiAligned, 40)
+      };
     }
 
     let macd = null;
