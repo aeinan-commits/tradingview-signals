@@ -372,7 +372,34 @@ const TF_CONFIG = {
   '1wk': { interval: '1wk', range: '10y', lookback: 150 },
   '1mo': { interval: '1mo', range: 'max', lookback: 100 }
 };
-
+// Bir TF için ham veri çekip basit yön kararı verir
+async function fetchTrendForTF(ticker, interval, range, resample, headers) {
+  try {
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=${interval}&range=${range}&events=div%2Csplit`, { headers });
+    const data = await r.json();
+    if (!data.chart || !data.chart.result || !data.chart.result[0]) return null;
+    const q = data.chart.result[0].indicators.quote[0];
+    let valid = q.close.map((p, i) => ({ p, v: q.volume[i], h: q.high[i], l: q.low[i] })).filter(x => x.p !== null && x.v !== null && x.h !== null && x.l !== null);
+    let c = valid.map(x => x.p), v = valid.map(x => x.v), h = valid.map(x => x.h), l = valid.map(x => x.l);
+    if (resample) { const rs = resampleTo4h(c.map(()=>0), c, v, h, l); c = rs.closes; v = rs.vols; h = rs.highs; l = rs.lows; }
+    if (c.length < 30) return null;
+    const price = c[c.length - 1];
+    // 3 ölçüt
+    const ema50 = ema(c, 50);
+    const st = calcSupertrend(h, l, c, 10, 3);
+    const macdData = calcMACD(c, 12, 26, 9);
+    let score = 0, votes = 0;
+    if (c.length >= 50) { score += price > ema50 ? 1 : -1; votes++; }
+    if (st) { score += st.direction === 'up' ? 1 : -1; votes++; }
+    if (macdData) { const m = macdData.macdLine[c.length - 1]; if (m !== null) { score += m > 0 ? 1 : -1; votes++; } }
+    let dir;
+    if (votes === 0) dir = 'neutral';
+    else if (score >= 1) dir = 'up';
+    else if (score <= -1) dir = 'down';
+    else dir = 'neutral';
+    return { dir, score, votes };
+  } catch (e) { return null; }
+}
 app.get('/analyze/:ticker', async (req, res) => {
   try {
     const ticker = req.params.ticker.toUpperCase() + '.IS';
@@ -497,13 +524,20 @@ app.get('/analyze/:ticker', async (req, res) => {
     const obvDiv = detectDivergence(closes, obvSeries, 40);
 
     const sr = findSupportResistance(highs, lows, currentPrice, cfg.lookback);
+    // Çoklu zaman dilimi uyumu (1h, 1d, 1wk arka planda)
+    const [mtfH1, mtfD1, mtfW1] = await Promise.all([
+      fetchTrendForTF(ticker, '1h', '730d', false, headers),
+      fetchTrendForTF(ticker, '1d', '5y', false, headers),
+      fetchTrendForTF(ticker, '1wk', '10y', false, headers)
+    ]);
+    const mtf = { h1: mtfH1, d1: mtfD1, w1: mtfW1 };
 
     res.json({
       ticker: tickerClean, timeframe: tf, currentPrice: parseFloat(currentPrice.toFixed(2)),
       mas, rsi: parseFloat(rsi.toFixed(1)),
       rsiSignal: rsiSignal !== null ? parseFloat(rsiSignal.toFixed(1)) : null,
       rsiAboveSignal, rsiVsSignalPct: rsiVsSignalPct !== null ? parseFloat(rsiVsSignalPct.toFixed(2)) : null, rsiDivergence: rsiDiv,
-      momentum, cci, mfi, macd, bollinger, candlePatterns, adx, supertrend, ichimoku,
+      momentum, cci, mfi, macd, bollinger, candlePatterns, adx, mtf, supertrend, ichimoku,
       volume: { current: currentVol, avg20: Math.round(avgVol20), avg5: Math.round(avgVol5), ratio: parseFloat(volRatio.toFixed(2)), priceVol, trend: volTrend, trendPct: parseFloat(volTrendPct.toFixed(1)), posPct: parseFloat(volPosPct.toFixed(0)), max50: Math.round(max50Vol), obvSignal, obvRising, obvDivergence: obvDiv },
       supportResistance: sr
     });
