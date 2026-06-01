@@ -844,9 +844,9 @@ async function run(keepTicker){
 
     r.innerHTML=
       '<div class="price-header"><div class="tk">📈 '+d.ticker+' <span id="favStar" class="fav-star" onclick="toggleFav(currentTicker)">☆</span></div><div class="pr">₺'+d.currentPrice+'</div><div class="tf">'+tfLabels[d.timeframe]+' grafik</div></div>'+
-      '<div class="section"><div class="section-title">Fiyat Grafiği</div>'+buildChart(d)+'</div>'+
       '<div class="section">'+summaryBox+targetBox+'</div>'+
       '<div class="section"><div class="section-title">Destek / Direnç Seviyeleri</div>'+srBox+'</div>'+
+      '<div class="section"><div class="section-title">Fiyat Grafiği</div>'+buildChart(d)+'</div>'+
       '<div class="section"><div class="section-title">Üstel Hareketli Ortalamalar (EMA)</div><div class="grid">'+maBoxes+'</div></div>'+
       '<div class="section"><div class="section-title"><span>Hacim Analizi</span><div class="period-btns"><button id="pb_d1" onclick="setPeriod(\'d1\')">1 Bar</button><button id="pb_d5" onclick="setPeriod(\'d5\')">5 Bar</button><button id="pb_d20" onclick="setPeriod(\'d20\')">20 Bar</button></div></div><div class="grid">'+volBoxes+'</div></div>'+
       '<div class="section"><div class="section-title">RSI (14) — Göreceli Güç Endeksi</div><div class="grid">'+rsiBox+sigBox+'</div></div>'+
