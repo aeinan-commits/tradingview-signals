@@ -361,7 +361,65 @@ async function run(keepTicker){
       voteRows+
       '<div class="vol-desc" style="margin-top:14px">Bu skor tüm göstergelerin ağırlıklı oylarının normalize edilmiş ortalamasıdır (-1 ile +1 arası, %0-100). '+(trendStrong?'ADX≥25 olduğu için trend göstergeleri (EMA, Supertrend, Ichimoku) ×1.5 ağırlıkla sayıldı. ':'')+'Yalnızca bir özettir, kesin al-sat tavsiyesi değildir; kendi değerlendirmenizle birlikte kullanın.</div>'+
     '</div>';
-    
+    // ===== OLASI FİYAT SEVİYELERİ & HEDEF =====
+    var targetBox='';
+    (function(){
+      var price=d.currentPrice;
+      var atr = d.supertrend ? d.supertrend.atr : null;
+      var ups=[], downs=[];
+      // Dirençler (yukarı hedef)
+      if(d.supportResistance){
+        d.supportResistance.resistances.forEach(function(r){ ups.push({label:'Direnç', val:r.level, dist:r.dist}); });
+        d.supportResistance.supports.forEach(function(s){ downs.push({label:'Destek', val:s.level, dist:s.dist}); });
+      }
+      // Bollinger bantları
+      if(d.bollinger){
+        ups.push({label:'Bollinger Üst', val:d.bollinger.upper, dist:((d.bollinger.upper-price)/price*100)});
+        downs.push({label:'Bollinger Alt', val:d.bollinger.lower, dist:((d.bollinger.lower-price)/price*100)});
+      }
+      // Sırala: yukarı hedefler artan, aşağı hedefler azalan
+      ups=ups.filter(function(x){return x.val>price;}).sort(function(a,b){return a.val-b.val;});
+      downs=downs.filter(function(x){return x.val<price;}).sort(function(a,b){return b.val-a.val;});
+
+      // ATR senaryosu
+      var atrTxt='';
+      if(atr){
+        var up1=price+atr, up2=price+2*atr, dn1=price-atr, dn2=price-2*atr;
+        atrTxt='<div style="margin-top:14px;padding-top:12px;border-top:1px solid #2a2a2a"><div style="color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">ATR Tabanlı Tipik Hareket (volatilite)</div>'+
+          '<div class="vol-desc">Bu zaman diliminde tipik bar hareketi yaklaşık <b style="color:#ccc">₺'+atr.toFixed(2)+'</b> (ATR). Buna göre:</div>'+
+          '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">'+
+            '<div style="flex:1;min-width:120px;background:#0f0f0f;border-radius:8px;padding:10px"><div style="color:#00c853;font-size:.8rem;font-weight:bold">+1 ATR</div><div style="font-size:1.05rem;font-weight:bold">₺'+up1.toFixed(2)+'</div></div>'+
+            '<div style="flex:1;min-width:120px;background:#0f0f0f;border-radius:8px;padding:10px"><div style="color:#00c853;font-size:.8rem;font-weight:bold">+2 ATR</div><div style="font-size:1.05rem;font-weight:bold">₺'+up2.toFixed(2)+'</div></div>'+
+            '<div style="flex:1;min-width:120px;background:#0f0f0f;border-radius:8px;padding:10px"><div style="color:#ff4444;font-size:.8rem;font-weight:bold">-1 ATR</div><div style="font-size:1.05rem;font-weight:bold">₺'+dn1.toFixed(2)+'</div></div>'+
+            '<div style="flex:1;min-width:120px;background:#0f0f0f;border-radius:8px;padding:10px"><div style="color:#ff4444;font-size:.8rem;font-weight:bold">-2 ATR</div><div style="font-size:1.05rem;font-weight:bold">₺'+dn2.toFixed(2)+'</div></div>'+
+          '</div></div>';
+      }
+
+      function lvlRows(arr,color){
+        if(arr.length===0) return '<div class="vol-desc">Yakın seviye bulunamadı.</div>';
+        return arr.slice(0,3).map(function(x){
+          var sign=x.dist>=0?'+':'';
+          return '<div style="display:flex;align-items:center;gap:10px;padding:5px 0"><span style="color:'+color+';font-size:.95rem;font-weight:bold;min-width:90px">₺'+x.val.toFixed(2)+'</span><span style="color:#888;font-size:.8rem;min-width:90px">'+x.label+'</span><span style="color:'+color+';font-size:.82rem">'+sign+x.dist.toFixed(2)+'%</span></div>';
+        }).join('');
+      }
+
+      // Skor yorumu
+      var bias, biasColor;
+      if(normScore>=0.2){ bias='Skor yukarı yönü destekliyor — yukarı hedefler daha olası, ilk direnç ana hedef.'; biasColor='#00c853'; }
+      else if(normScore<=-0.2){ bias='Skor aşağı yönü destekliyor — destek seviyeleri risk altında, stop seviyeleri önemli.'; biasColor='#ff4444'; }
+      else{ bias='Skor nötr — yön net değil. Fiyatın hangi seviyeyi (direnç/destek) kıracağını izlemek mantıklı.'; biasColor='#f0b90b'; }
+
+      targetBox='<div style="background:#1a1a1a;border-radius:16px;padding:24px;margin-top:16px;border-left:5px solid '+biasColor+'">'+
+        '<div style="color:#888;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px">🎯 Olası Fiyat Seviyeleri & Hedefler</div>'+
+        '<div style="display:flex;gap:20px;flex-wrap:wrap">'+
+          '<div style="flex:1;min-width:240px"><div style="color:#00c853;font-size:.8rem;font-weight:bold;margin-bottom:6px">▲ YUKARI HEDEFLER</div>'+lvlRows(ups,'#00c853')+'</div>'+
+          '<div style="flex:1;min-width:240px"><div style="color:#ff4444;font-size:.8rem;font-weight:bold;margin-bottom:6px">▼ AŞAĞI SEVİYELER (Risk/Stop)</div>'+lvlRows(downs,'#ff4444')+'</div>'+
+        '</div>'+
+        atrTxt+
+        '<div style="margin-top:14px;padding:12px;background:'+biasColor+'15;border-radius:8px;font-size:.9rem;color:#ccc">'+bias+'</div>'+
+        '<div class="vol-desc" style="margin-top:12px">⚠️ Bunlar bir <b>tahmin değil</b>, teknik analizden çıkan olası seviyelerdir. Fiyatın bu seviyelere ulaşacağı garanti edilemez. Yatırım tavsiyesi değildir; kendi araştırmanızla birlikte kullanın.</div>'+
+      '</div>';
+    })();
     var sr=d.supportResistance, srRows='';
     sr.resistances.slice().reverse().forEach(function(rz){ srRows+='<div class="sr-row"><span class="sr-tag res">DİRENÇ</span><span class="sr-level">₺'+rz.level+'</span><span class="sr-dist">+'+rz.dist+'% yukarıda</span><span class="sr-touch">'+rz.touches+' temas</span></div>'; });
     srRows+='<div class="sr-current-row"><div class="sr-row" style="padding:0"><span class="sr-tag cur">FİYAT</span><span class="sr-level">₺'+d.currentPrice+'</span><span class="sr-dist">şu anki fiyat</span></div></div>';
@@ -588,7 +646,7 @@ async function run(keepTicker){
 
     r.innerHTML=
       '<div class="price-header"><div class="tk">📈 '+d.ticker+'</div><div class="pr">₺'+d.currentPrice+'</div><div class="tf">'+tfLabels[d.timeframe]+' grafik</div></div>'+
-      '<div class="section">'+summaryBox+'</div>'+
+      '<div class="section">'+summaryBox+targetBox+'</div>'+
       '<div class="section"><div class="section-title">Destek / Direnç Seviyeleri</div>'+srBox+'</div>'+
       '<div class="section"><div class="section-title">Üstel Hareketli Ortalamalar (EMA)</div><div class="grid">'+maBoxes+'</div></div>'+
       '<div class="section"><div class="section-title"><span>Hacim Analizi</span><div class="period-btns"><button id="pb_d1" onclick="setPeriod(\'d1\')">1 Bar</button><button id="pb_d5" onclick="setPeriod(\'d5\')">5 Bar</button><button id="pb_d20" onclick="setPeriod(\'d20\')">20 Bar</button></div></div><div class="grid">'+volBoxes+'</div></div>'+
