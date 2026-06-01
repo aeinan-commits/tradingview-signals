@@ -244,14 +244,14 @@ function priceVolSignal(closes, vols, days, avgVol20) {
   else signal = 'weak_down';
   return { signal, priceUp, pricePct: parseFloat(pricePct.toFixed(2)), volAboveAvg };
 }
-function resampleTo4h(closes, vols, highs, lows) {
-  const nc = [], nv = [], nh = [], nl = [];
+function resampleTo4h(opens, closes, vols, highs, lows) {
+  const no = [], nc = [], nv = [], nh = [], nl = [];
   for (let i = 0; i < closes.length; i += 4) {
-    const c = closes.slice(i, i + 4), v = vols.slice(i, i + 4), h = highs.slice(i, i + 4), l = lows.slice(i, i + 4);
+    const o = opens.slice(i, i + 4), c = closes.slice(i, i + 4), v = vols.slice(i, i + 4), h = highs.slice(i, i + 4), l = lows.slice(i, i + 4);
     if (c.length === 0) continue;
-    nc.push(c[c.length - 1]); nv.push(v.reduce((a, b) => a + b, 0)); nh.push(Math.max(...h)); nl.push(Math.min(...l));
+    no.push(o[0]); nc.push(c[c.length - 1]); nv.push(v.reduce((a, b) => a + b, 0)); nh.push(Math.max(...h)); nl.push(Math.min(...l));
   }
-  return { closes: nc, vols: nv, highs: nh, lows: nl };
+  return { opens: no, closes: nc, vols: nv, highs: nh, lows: nl };
 }
 function findSupportResistance(highs, lows, currentPrice, lookback) {
   const n = highs.length; const start = Math.max(0, n - lookback); const win = 3;
@@ -303,10 +303,10 @@ app.get('/analyze/:ticker', async (req, res) => {
     if (!chartData.chart || !chartData.chart.result || !chartData.chart.result[0]) return res.status(500).json({ error: 'Hisse bulunamadı: ' + ticker });
 
     const quote = chartData.chart.result[0].indicators.quote[0];
-    let valid = quote.close.map((p, i) => ({ p, v: quote.volume[i], h: quote.high[i], l: quote.low[i] })).filter(x => x.p !== null && x.v !== null && x.h !== null && x.l !== null);
-    let closes = valid.map(x => x.p), vols = valid.map(x => x.v), highs = valid.map(x => x.h), lows = valid.map(x => x.l);
+    let valid = quote.close.map((p, i) => ({ p, v: quote.volume[i], h: quote.high[i], l: quote.low[i], o: quote.open[i] })).filter(x => x.p !== null && x.v !== null && x.h !== null && x.l !== null && x.o !== null);
+    let closes = valid.map(x => x.p), vols = valid.map(x => x.v), highs = valid.map(x => x.h), lows = valid.map(x => x.l), opens = valid.map(x => x.o);
 
-    if (cfg.resample) { const r = resampleTo4h(closes, vols, highs, lows); closes = r.closes; vols = r.vols; highs = r.highs; lows = r.lows; }
+    if (cfg.resample) { const r = resampleTo4h(opens, closes, vols, highs, lows); opens = r.opens; closes = r.closes; vols = r.vols; highs = r.highs; lows = r.lows; }
     if (closes.length < 50) return res.status(500).json({ error: 'Bu zaman dilimi için yeterli veri yok' });
 
     const currentPrice = closes[closes.length - 1];
@@ -392,6 +392,7 @@ app.get('/analyze/:ticker', async (req, res) => {
 
     const supertrend = calcSupertrend(highs, lows, closes, 10, 3);
     const bollinger = calcBollinger(closes, 20, 2);
+    const candlePatterns = detectCandlePatterns(opens, highs, lows, closes);
     const ichimoku = calcIchimoku(highs, lows, closes);
 
     const avgVol20 = vols.slice(-20).reduce((a, b) => a + b, 0) / Math.min(vols.length, 20);
@@ -418,7 +419,7 @@ app.get('/analyze/:ticker', async (req, res) => {
       mas, rsi: parseFloat(rsi.toFixed(1)),
       rsiSignal: rsiSignal !== null ? parseFloat(rsiSignal.toFixed(1)) : null,
       rsiAboveSignal, rsiVsSignalPct: rsiVsSignalPct !== null ? parseFloat(rsiVsSignalPct.toFixed(2)) : null, rsiDivergence: rsiDiv,
-      momentum, cci, mfi, macd, bollinger, supertrend, ichimoku,
+      momentum, cci, mfi, macd, bollinger, candlePatterns, supertrend, ichimoku,
       volume: { current: currentVol, avg20: Math.round(avgVol20), avg5: Math.round(avgVol5), ratio: parseFloat(volRatio.toFixed(2)), priceVol, trend: volTrend, trendPct: parseFloat(volTrendPct.toFixed(1)), posPct: parseFloat(volPosPct.toFixed(0)), max50: Math.round(max50Vol), obvSignal, obvRising, obvDivergence: obvDiv },
       supportResistance: sr
     });
