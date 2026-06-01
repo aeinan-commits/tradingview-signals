@@ -297,6 +297,26 @@ async function run(keepTicker){
         '<div class="sig-box '+sqCls+'"><div class="sig-label">Bant Genişliği & Sıkışma</div><div class="sig-main '+sqCls+'">'+sqTitle+'</div><div class="sig-sub">Genişlik: %'+bb.bandwidth+' | Konum: %'+bb.bwPos+'</div><div class="sig-desc">'+sqDesc+'</div></div>';
     } else { bollBox='<div class="sig-box"><div class="sig-label">Bollinger</div><div class="sig-desc">Yeterli veri yok</div></div>'; }
 
+    // MUM FORMASYONLARI
+    var candleBox='';
+    if(d.candlePatterns && d.candlePatterns.patterns){
+      var pats=d.candlePatterns.patterns;
+      var ptrend=d.candlePatterns.priorTrend;
+      var trendTxt=ptrend==='up'?'<span style="color:#00c853">yükseliş</span>':'<span style="color:#ff4444">düşüş</span>';
+      if(pats.length===0){
+        candleBox='<div class="sig-box"><div class="sig-label">Mum Formasyonu</div><div class="sig-main" style="color:#888;font-size:1.2rem">Belirgin formasyon yok</div><div class="sig-desc">Son mumlarda güvenilir bir formasyon tespit edilmedi. Mevcut kısa vadeli eğilim: '+trendTxt+'.</div></div>';
+      } else {
+        candleBox=pats.map(function(p){
+          var cls,dirTag;
+          if(p.dir==='bull'){cls='green';dirTag='<span class="div-tag bull">🟢 YÜKSELİŞ</span>';}
+          else if(p.dir==='bear'){cls='red';dirTag='<span class="div-tag bear">🔴 DÜŞÜŞ</span>';}
+          else{cls='yellow';dirTag='<span class="div-tag none">⚪ KARARSIZ</span>';}
+          return '<div class="sig-box '+cls+'"><div class="sig-label">'+p.candles+' Mumluk Formasyon</div><div class="sig-main '+cls+'">'+p.name+'</div><div style="margin-bottom:8px">'+dirTag+'</div><div class="sig-desc">'+p.desc+'<br><br><b style="color:#aaa">Bağlam:</b> Formasyon öncesi kısa vadeli eğilim '+trendTxt+' yönündeydi.</div></div>';
+        }).join('');
+      }
+    } else { candleBox='<div class="sig-box"><div class="sig-label">Mum Formasyonu</div><div class="sig-desc">Yeterli veri yok</div></div>'; }
+
+    var stBox='';
     var stBox='';
     if(d.supertrend){
       var st=d.supertrend, up=st.direction==='up', stCls=up?'up':'down';
@@ -331,6 +351,7 @@ async function run(keepTicker){
       '<div class="section"><div class="section-title">CCI (20) + 14 Bar Ortalaması</div><div class="grid">'+cciBoxes+'</div></div>'+
       '<div class="section"><div class="section-title">MACD (12-26-9)</div><div class="grid">'+macdBoxes+'</div></div>'+
       '<div class="section"><div class="section-title">Bollinger Bantları (20, 2) — Volatilite</div><div class="grid">'+bollBox+'</div></div>'+
+      '<div class="section"><div class="section-title">Mum Formasyonları — Fiyat Hareketi (Price Action)</div><div class="grid">'+candleBox+'</div></div>'+
       '<div class="section"><div class="section-title">Supertrend — Trend Yönü</div>'+stBox+'</div>'+
       '<div class="section"><div class="section-title">Ichimoku Bulutu — Kapsamlı Trend Analizi</div>'+ichBox+'</div>';
 
