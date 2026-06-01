@@ -157,7 +157,44 @@ function detectCandlePatterns(opens, highs, lows, closes) {
   }
   // ASILI ADAM (Hanging Man) - yükseliş trendinde tepede dönüş (ayı)
   if (lowerWick(i) > body(i) * 2 && upperWick(i) < body(i) * 0.6 && body(i) > 0 && priorTrend === 'up') {
-    patterns.push({ name: 'Asılı Adam (Hanging Man)', dir: 'bear', candles: 1, desc: 'Çekiçle aynı şekil ama yükseliş trendinin tepesinde göründü — ayı dönüş uyarısı.
+    patterns.push({ name: 'Asılı Adam (Hanging Man)', dir: 'bear', candles: 1, desc: 'Çekiçle aynı şekil ama yükseliş trendinin tepesinde göründü — ayı dönüş uyarısı. Satış baskısının arttığına işaret eder.' });
+  }
+  // TERS ÇEKİÇ (Inverted Hammer) - düşüşte dipte boğa
+  if (upperWick(i) > body(i) * 2 && lowerWick(i) < body(i) * 0.6 && body(i) > 0 && priorTrend === 'down') {
+    patterns.push({ name: 'Ters Çekiç (Inverted Hammer)', dir: 'bull', candles: 1, desc: 'Uzun üst fitil, düşüş trendinin dibinde — alıcıların yukarı denemesi. Boğa dönüş adayı, teyit bekleyin.' });
+  }
+  // KAYAN YILDIZ (Shooting Star) - yükselişte tepede ayı
+  if (upperWick(i) > body(i) * 2 && lowerWick(i) < body(i) * 0.6 && body(i) > 0 && priorTrend === 'up') {
+    patterns.push({ name: 'Kayan Yıldız (Shooting Star)', dir: 'bear', candles: 1, desc: 'Uzun üst fitil, yükseliş trendinin tepesinde — alıcılar yukarı itti ama satıcılar geri çekti. Güçlü ayı dönüş sinyali.' });
+  }
+  // DOJI - kararsızlık
+  if (body(i) < range(i) * 0.1 && range(i) > 0) {
+    patterns.push({ name: 'Doji', dir: 'neutral', candles: 1, desc: 'Açılış ve kapanış neredeyse eşit — alıcı ve satıcılar dengede, kararsızlık. Güçlü bir trendin sonunda göründüyse dönüş habercisi olabilir.' });
+  }
+  // YUTAN BOĞA (Bullish Engulfing)
+  if (isBear(j) && isBull(i) && closes[i] > opens[j] && opens[i] < closes[j] && body(i) > body(j)) {
+    patterns.push({ name: 'Yutan Boğa (Bullish Engulfing)', dir: 'bull', candles: 2, desc: 'Yeşil mum, önceki kırmızı mumu tamamen yuttu — alıcılar kontrolü ele geçirdi. Özellikle düşüş sonrası güçlü boğa dönüş sinyali.' });
+  }
+  // YUTAN AYI (Bearish Engulfing)
+  if (isBull(j) && isBear(i) && closes[i] < opens[j] && opens[i] > closes[j] && body(i) > body(j)) {
+    patterns.push({ name: 'Yutan Ayı (Bearish Engulfing)', dir: 'bear', candles: 2, desc: 'Kırmızı mum, önceki yeşil mumu tamamen yuttu — satıcılar kontrolü ele geçirdi. Özellikle yükseliş sonrası güçlü ayı dönüş sinyali.' });
+  }
+  // SABAH YILDIZI (Morning Star) - 3 mum, boğa
+  if (n >= 3 && isBear(k) && body(j) < avgBody * 0.5 && isBull(i) && closes[i] > (opens[k] + closes[k]) / 2 && priorTrend === 'down') {
+    patterns.push({ name: 'Sabah Yıldızı (Morning Star)', dir: 'bull', candles: 3, desc: 'Üç mumluk dizilim: büyük kırmızı + küçük kararsız mum + büyük yeşil. Düşüşün bittiğine ve boğa dönüşüne işaret eden güçlü bir formasyon.' });
+  }
+  // AKŞAM YILDIZI (Evening Star) - 3 mum, ayı
+  if (n >= 3 && isBull(k) && body(j) < avgBody * 0.5 && isBear(i) && closes[i] < (opens[k] + closes[k]) / 2 && priorTrend === 'up') {
+    patterns.push({ name: 'Akşam Yıldızı (Evening Star)', dir: 'bear', candles: 3, desc: 'Üç mumluk dizilim: büyük yeşil + küçük kararsız mum + büyük kırmızı. Yükselişin bittiğine ve ayı dönüşüne işaret eden güçlü bir formasyon.' });
+  }
+  // MARUBOZU - fitilsiz güçlü mum, trend devamı
+  if (body(i) > range(i) * 0.9 && range(i) > avgBody) {
+    if (isBull(i)) patterns.push({ name: 'Boğa Marubozu', dir: 'bull', candles: 1, desc: 'Neredeyse fitilsiz büyük yeşil mum — alıcılar açılıştan kapanışa tam kontrol. Güçlü yukarı momentum, trend devamı sinyali.' });
+    else patterns.push({ name: 'Ayı Marubozu', dir: 'bear', candles: 1, desc: 'Neredeyse fitilsiz büyük kırmızı mum — satıcılar açılıştan kapanışa tam kontrol. Güçlü aşağı momentum, düşüş devamı sinyali.' });
+  }
+  return { patterns, priorTrend };
+}
+
 function calcMomentumSeriesAligned(closes, period) {
   const mom = [];
   for (let i = 0; i < closes.length; i++) mom[i] = i < period ? null : closes[i] - closes[i - period];
