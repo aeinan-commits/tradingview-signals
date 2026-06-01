@@ -468,9 +468,9 @@ async function run(keepTicker){
         if(stopPool.length>0) stop=stopPool[0].val;
         var tPct=((target-price)/price*100), sPct=((stop-price)/price*100);
         var tSign=tPct>=0?'+':'', sSign=sPct>=0?'+':'';
-        // Risk/Ödül oranı — sadece ALIM (hedef yukarıda) için anlamlı; açığa satış yok
+        // // Risk/Ödül oranı — sadece ALIM (hedef yukarıda) için anlamlı; açığa satış yok
         var rrLine='';
-        if(dir>0){
+        if(target>price){
           var reward=target-price, risk=price-stop;
           var rr = risk>0 ? reward/risk : 0;
           var rrCls,rrText;
