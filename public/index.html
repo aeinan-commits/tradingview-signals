@@ -337,6 +337,35 @@ async function run(keepTicker){
         '<div class="sig-box '+dirCls+'"><div class="sig-label">Yön Göstergeleri (+DI / -DI)</div><div class="sig-main '+dirCls+'">'+dirTitle+'</div><div class="sig-sub">+DI: '+ax.plusDI+' | -DI: '+ax.minusDI+'</div><div class="sig-desc">'+dirDesc+'</div></div>';
     } else { adxBox='<div class="sig-box"><div class="sig-label">ADX</div><div class="sig-desc">Yeterli veri yok</div></div>'; }
 
+    // ÇOKLU ZAMAN DİLİMİ UYUMU
+    var mtfBox='';
+    if(d.mtf){
+      function tfRow(label,o){
+        if(!o) return '<div class="sr-row"><span class="sr-tag cur" style="min-width:70px">'+label+'</span><span class="sr-dist">Veri yok</span></div>';
+        var t,c;
+        if(o.dir==='up'){t='🟢 YÜKSELİŞ';c='#00c853';}
+        else if(o.dir==='down'){t='🔴 DÜŞÜŞ';c='#ff4444';}
+        else{t='🟡 NÖTR';c='#f0b90b';}
+        return '<div class="sr-row"><span class="sr-tag cur" style="min-width:70px">'+label+'</span><span class="sr-level" style="color:'+c+';min-width:120px">'+t+'</span><span class="sr-touch">'+o.score+'/'+o.votes+' ölçüt</span></div>';
+      }
+      var dirs=[];
+      if(d.mtf.h1) dirs.push(d.mtf.h1.dir);
+      if(d.mtf.d1) dirs.push(d.mtf.d1.dir);
+      if(d.mtf.w1) dirs.push(d.mtf.w1.dir);
+      var ups=dirs.filter(function(x){return x==='up';}).length;
+      var downs=dirs.filter(function(x){return x==='down';}).length;
+      var verdict,vCls;
+      if(dirs.length>0 && ups===dirs.length){verdict='✅ TAM UYUM — Tüm zaman dilimleri YÜKSELİŞ yönünde. Güçlü teyit, trend her vadede yukarı.';vCls='green';}
+      else if(dirs.length>0 && downs===dirs.length){verdict='❌ TAM UYUM — Tüm zaman dilimleri DÜŞÜŞ yönünde. Güçlü teyit, trend her vadede aşağı.';vCls='red';}
+      else if(ups>downs){verdict='🔼 KISMİ UYUM — Çoğunluk yükseliş yönünde ama tam hizalanma yok. Temkinli iyimser.';vCls='yellow';}
+      else if(downs>ups){verdict='🔽 KISMİ UYUM — Çoğunluk düşüş yönünde ama tam hizalanma yok. Temkinli.';vCls='yellow';}
+      else{verdict='⚠️ ÇELİŞKİ — Zaman dilimleri farklı yönleri gösteriyor. Net trend yok, dikkatli olun.';vCls='yellow';}
+      mtfBox='<div class="sr-wrap" style="border-left:5px solid '+(vCls==='green'?'#00c853':vCls==='red'?'#ff4444':'#f0b90b')+'">'+
+        tfRow('1 SAAT',d.mtf.h1)+tfRow('GÜNLÜK',d.mtf.d1)+tfRow('HAFTALIK',d.mtf.w1)+
+        '<hr class="sr-divider"><div class="vol-desc" style="font-size:.9rem;color:#ccc">'+verdict+'</div>'+
+        '<div class="vol-desc" style="margin-top:8px">Her zaman dilimi 3 ölçütle değerlendirilir: fiyatın EMA50\'ye göre konumu, Supertrend yönü ve MACD\'nin sıfır çizgisine göre konumu. Birden fazla vade aynı yönü gösterdiğinde sinyal güvenilirliği artar.</div></div>';
+    } else { mtfBox='<div class="sr-wrap"><div class="vol-desc">Veri yok</div></div>'; }
+
     var stBox='';
     var stBox='';
     if(d.supertrend){
@@ -374,6 +403,7 @@ async function run(keepTicker){
       '<div class="section"><div class="section-title">Bollinger Bantları (20, 2) — Volatilite</div><div class="grid">'+bollBox+'</div></div>'+
       '<div class="section"><div class="section-title">Mum Formasyonları — Fiyat Hareketi (Price Action)</div><div class="grid">'+candleBox+'</div></div>'+
       '<div class="section"><div class="section-title">ADX (14) — Trend Gücü & Yön</div><div class="grid">'+adxBox+'</div></div>'+
+      '<div class="section"><div class="section-title">Çoklu Zaman Dilimi Uyumu</div>'+mtfBox+'</div>'+
       '<div class="section"><div class="section-title">Supertrend — Trend Yönü</div>'+stBox+'</div>'+
       '<div class="section"><div class="section-title">Ichimoku Bulutu — Kapsamlı Trend Analizi</div>'+ichBox+'</div>';
 
