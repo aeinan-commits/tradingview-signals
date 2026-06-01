@@ -91,6 +91,11 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 .error{color:#ff4444;text-align:center;padding:20px}
 .loading{color:#aaa;text-align:center;padding:20px}
 #result{display:none}
+.fav-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#1a1a1a;border:1px solid #333;border-radius:20px;cursor:pointer;font-size:.82rem;color:#f0b90b;font-weight:bold}
+.fav-chip:hover{background:#252525;border-color:#f0b90b}
+.fav-chip .x{color:#666;font-weight:bold;font-size:.9rem}
+.fav-chip .x:hover{color:#ff4444}
+.fav-star{cursor:pointer;font-size:1.4rem;user-select:none}
 </style>
 </head>
 <body>
@@ -99,6 +104,7 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 <input type="text" id="ti" placeholder="Hisse kodu (örn: THYAO)" maxlength="10"/>
 <button id="btn">Analiz Et</button>
 </div>
+<div id="favBar" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;max-width:700px;margin-left:auto;margin-right:auto"></div>
 <div class="tf-bar">
 <button data-tf="15m">15dk</button>
 <button data-tf="1h">1 Saat</button>
@@ -110,6 +116,36 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 <div id="result"></div>
 <script>
 var lastData=null, selectedPeriod='d1', selectedTF='1d', currentTicker='';
+
+// ===== FAVORİ LİSTESİ =====
+function getFavs(){ try{ return JSON.parse(localStorage.getItem('bistFavs')||'[]'); }catch(e){ return []; } }
+function saveFavs(arr){ try{ localStorage.setItem('bistFavs', JSON.stringify(arr)); }catch(e){} }
+function isFav(t){ return getFavs().indexOf(t)>-1; }
+function toggleFav(t){
+  if(!t) return;
+  var f=getFavs(), i=f.indexOf(t);
+  if(i>-1) f.splice(i,1); else f.unshift(t);
+  if(f.length>15) f=f.slice(0,15);
+  saveFavs(f); renderFavs();
+  if(currentTicker) updateStar();
+}
+function renderFavs(){
+  var bar=document.getElementById('favBar'); var f=getFavs();
+  if(f.length===0){ bar.innerHTML='<span style="color:#555;font-size:.8rem">★ Favori eklemek için bir hisse analiz edip yıldıza tıklayın</span>'; return; }
+  bar.innerHTML=f.map(function(t){
+    return '<span class="fav-chip"><span onclick="openFav(\''+t+'\')">★ '+t+'</span><span class="x" onclick="event.stopPropagation();toggleFav(\''+t+'\')">✕</span></span>';
+  }).join('');
+}
+function openFav(t){ document.getElementById('ti').value=t; currentTicker=t; run(); }
+function updateStar(){
+  var s=document.getElementById('favStar'); if(!s) return;
+  var on=isFav(currentTicker);
+  s.textContent=on?'★':'☆';
+  s.style.color=on?'#f0b90b':'#666';
+  s.title=on?'Favorilerden çıkar':'Favorilere ekle';
+}
+document.addEventListener('DOMContentLoaded', renderFavs);
+renderFavs();
 var tfLabels={'15m':'15 Dakikalık','1h':'1 Saatlik','4h':'4 Saatlik','1d':'Günlük','1wk':'Haftalık','1mo':'Aylık'};
 
 document.getElementById('btn').addEventListener('click', function(){ run(); });
@@ -694,7 +730,7 @@ async function run(keepTicker){
     } else { ichBox='<div class="ich-wrap"><div class="vol-desc">Bu zaman dilimi için yeterli veri yok (en az 52 bar).</div></div>'; }
 
     r.innerHTML=
-      '<div class="price-header"><div class="tk">📈 '+d.ticker+'</div><div class="pr">₺'+d.currentPrice+'</div><div class="tf">'+tfLabels[d.timeframe]+' grafik</div></div>'+
+      '<div class="price-header"><div class="tk">📈 '+d.ticker+' <span id="favStar" class="fav-star" onclick="toggleFav(currentTicker)">☆</span></div><div class="pr">₺'+d.currentPrice+'</div><div class="tf">'+tfLabels[d.timeframe]+' grafik</div></div>'+
       '<div class="section">'+summaryBox+targetBox+'</div>'+
       '<div class="section"><div class="section-title">Destek / Direnç Seviyeleri</div>'+srBox+'</div>'+
       '<div class="section"><div class="section-title">Üstel Hareketli Ortalamalar (EMA)</div><div class="grid">'+maBoxes+'</div></div>'+
@@ -713,6 +749,7 @@ async function run(keepTicker){
 
     selectedPeriod='d1';
     renderPriceVol();
+    updateStar();
 
   }catch(e){ r.innerHTML='<p class="error">❌ Hata: '+e.message+'</p>'; }
 }
