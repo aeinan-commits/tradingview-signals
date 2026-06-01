@@ -316,6 +316,27 @@ async function run(keepTicker){
       }
     } else { candleBox='<div class="sig-box"><div class="sig-label">Mum Formasyonu</div><div class="sig-desc">Yeterli veri yok</div></div>'; }
 
+    // ADX
+    var adxBox='';
+    if(d.adx){
+      var ax=d.adx;
+      var strCls,strTitle,strDesc;
+      if(ax.adx<20){strCls='yellow';strTitle='😴 Zayıf / Yatay';strDesc='ADX 20 altında ('+ax.adx+') — belirgin bir trend yok, piyasa yatay seyrediyor. Bu bölgede trend takip sinyalleri (MACD, Supertrend) yanıltıcı olabilir; bant/aralık stratejileri daha uygun.';}
+      else if(ax.adx<25){strCls='yellow';strTitle='🔸 Gelişen Trend';strDesc='ADX 20-25 arası ('+ax.adx+') — trend henüz zayıf ama oluşmaya başlıyor olabilir. Teyit bekleyin.';}
+      else if(ax.adx<50){strCls='green';strTitle='💪 Güçlü Trend';strDesc='ADX 25-50 arası ('+ax.adx+') — güçlü ve sağlıklı bir trend var. Yön için +DI/-DI kutusuna bakın. Trend takip sinyalleri bu bölgede daha güvenilir.';}
+      else{strCls='purple';strTitle='🔥 Çok Güçlü Trend';strDesc='ADX 50 üzerinde ('+ax.adx+') — çok güçlü trend. Ancak bu kadar yüksek seviyeler genellikle trendin olgunlaştığına ve yorulmaya yakın olduğuna işaret eder.';}
+
+      var dirCls=ax.bullish?'green':'red';
+      var dirTitle=ax.bullish?'▲ Yükseliş Yönlü (+DI > -DI)':'▼ Düşüş Yönlü (-DI > +DI)';
+      var dirDesc=ax.bullish
+        ? '+DI ('+ax.plusDI+') eksi DI\'nin ('+ax.minusDI+') üstünde — alıcılar yön veriyor. ADX güçlüyse bu yükseliş trendinin sağlam olduğunu teyit eder.'
+        : '-DI ('+ax.minusDI+') artı DI\'nin ('+ax.plusDI+') üstünde — satıcılar yön veriyor. ADX güçlüyse bu düşüş trendinin sağlam olduğunu teyit eder.';
+
+      adxBox=
+        '<div class="sig-box '+strCls+'"><div class="sig-label">ADX (14) — Trend Gücü</div><div class="sig-main '+strCls+'">'+strTitle+'</div><div class="sig-sub">ADX: '+ax.adx+'</div><div class="sig-desc">'+strDesc+'</div></div>'+
+        '<div class="sig-box '+dirCls+'"><div class="sig-label">Yön Göstergeleri (+DI / -DI)</div><div class="sig-main '+dirCls+'">'+dirTitle+'</div><div class="sig-sub">+DI: '+ax.plusDI+' | -DI: '+ax.minusDI+'</div><div class="sig-desc">'+dirDesc+'</div></div>';
+    } else { adxBox='<div class="sig-box"><div class="sig-label">ADX</div><div class="sig-desc">Yeterli veri yok</div></div>'; }
+
     var stBox='';
     var stBox='';
     if(d.supertrend){
@@ -352,6 +373,7 @@ async function run(keepTicker){
       '<div class="section"><div class="section-title">MACD (12-26-9)</div><div class="grid">'+macdBoxes+'</div></div>'+
       '<div class="section"><div class="section-title">Bollinger Bantları (20, 2) — Volatilite</div><div class="grid">'+bollBox+'</div></div>'+
       '<div class="section"><div class="section-title">Mum Formasyonları — Fiyat Hareketi (Price Action)</div><div class="grid">'+candleBox+'</div></div>'+
+      '<div class="section"><div class="section-title">ADX (14) — Trend Gücü & Yön</div><div class="grid">'+adxBox+'</div></div>'+
       '<div class="section"><div class="section-title">Supertrend — Trend Yönü</div>'+stBox+'</div>'+
       '<div class="section"><div class="section-title">Ichimoku Bulutu — Kapsamlı Trend Analizi</div>'+ichBox+'</div>';
 
