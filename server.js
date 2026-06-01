@@ -128,6 +128,36 @@ function calcBollinger(closes, period, mult) {
     squeeze, pos
   };
 }
+// Mum formasyonu tespiti — son barlara bakar, trend bağlamı ile
+function detectCandlePatterns(opens, highs, lows, closes) {
+  const n = closes.length;
+  if (n < 10) return [];
+  const patterns = [];
+
+  // Trend bağlamı: son 10 barın yönü (formasyon konumu için)
+  const trendRef = closes[n - 11] !== undefined ? closes[n - 11] : closes[0];
+  const priorTrend = closes[n - 2] > trendRef ? 'up' : 'down';
+
+  // Yardımcılar (son mum = index n-1)
+  function body(i) { return Math.abs(closes[i] - opens[i]); }
+  function range(i) { return highs[i] - lows[i]; }
+  function upperWick(i) { return highs[i] - Math.max(opens[i], closes[i]); }
+  function lowerWick(i) { return Math.min(opens[i], closes[i]) - lows[i]; }
+  function isBull(i) { return closes[i] > opens[i]; }
+  function isBear(i) { return closes[i] < opens[i]; }
+
+  const i = n - 1;       // son mum
+  const j = n - 2;       // önceki
+  const k = n - 3;       // iki önceki
+  const avgBody = (body(i) + body(j) + body(n - 4) + body(n - 5)) / 4 || 1;
+
+  // ÇEKİÇ (Hammer) - düşüş trendinde dipte dönüş (boğa)
+  if (lowerWick(i) > body(i) * 2 && upperWick(i) < body(i) * 0.6 && body(i) > 0 && priorTrend === 'down') {
+    patterns.push({ name: 'Çekiç (Hammer)', dir: 'bull', candles: 1, desc: 'Uzun alt fitil, fiyatın aşağı itilip alıcılar tarafından geri alındığını gösterir. Düşüş trendinin dibinde göründü — boğa dönüş sinyali. Hacimle teyit güçlendirir.' });
+  }
+  // ASILI ADAM (Hanging Man) - yükseliş trendinde tepede dönüş (ayı)
+  if (lowerWick(i) > body(i) * 2 && upperWick(i) < body(i) * 0.6 && body(i) > 0 && priorTrend === 'up') {
+    patterns.push({ name: 'Asılı Adam (Hanging Man)', dir: 'bear', candles: 1, desc: 'Çekiçle aynı şekil ama yükseliş trendinin tepesinde göründü — ayı dönüş uyarısı.
 function calcMomentumSeriesAligned(closes, period) {
   const mom = [];
   for (let i = 0; i < closes.length; i++) mom[i] = i < period ? null : closes[i] - closes[i - period];
