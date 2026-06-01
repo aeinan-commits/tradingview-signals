@@ -231,6 +231,52 @@ function detectDivergence(priceArr, indArr, lookback) {
   if (lows.length >= 2) { const a = lows[lows.length - 2], b = lows[lows.length - 1]; if (b.price < a.price && b.ind > a.ind) result = (result === 'bearish') ? 'both' : 'bullish'; }
   return result;
 }
+// ADX + DI (14) - Wilder yöntemi
+function calcADX(highs, lows, closes, period) {
+  const n = closes.length;
+  if (n < period * 2 + 1) return null;
+  const tr = [], plusDM = [], minusDM = [];
+  for (let i = 1; i < n; i++) {
+    const upMove = highs[i] - highs[i - 1];
+    const downMove = lows[i - 1] - lows[i];
+    plusDM.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDM.push(downMove > upMove && downMove > 0 ? downMove : 0);
+    tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
+  }
+  // Wilder smoothing
+  function wilderSmooth(arr) {
+    const sm = [];
+    let sum = arr.slice(0, period).reduce((a, b) => a + b, 0);
+    sm[period - 1] = sum;
+    for (let i = period; i < arr.length; i++) {
+      sum = sum - sum / period + arr[i];
+      sm[i] = sum;
+    }
+    return sm;
+  }
+  const trS = wilderSmooth(tr), plusS = wilderSmooth(plusDM), minusS = wilderSmooth(minusDM);
+  const plusDI = [], minusDI = [], dx = [];
+  for (let i = period - 1; i < tr.length; i++) {
+    const pdi = trS[i] === 0 ? 0 : (plusS[i] / trS[i]) * 100;
+    const mdi = trS[i] === 0 ? 0 : (minusS[i] / trS[i]) * 100;
+    plusDI[i] = pdi; minusDI[i] = mdi;
+    const sum = pdi + mdi;
+    dx[i] = sum === 0 ? 0 : (Math.abs(pdi - mdi) / sum) * 100;
+  }
+  // ADX = DX'in Wilder ortalaması
+  const dxVals = dx.filter(x => x !== undefined);
+  if (dxVals.length < period) return null;
+  let adx = dxVals.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < dxVals.length; i++) adx = (adx * (period - 1) + dxVals[i]) / period;
+  const lastPlusDI = plusDI[plusDI.length - 1];
+  const lastMinusDI = minusDI[minusDI.length - 1];
+  return {
+    adx: parseFloat(adx.toFixed(1)),
+    plusDI: parseFloat(lastPlusDI.toFixed(1)),
+    minusDI: parseFloat(lastMinusDI.toFixed(1)),
+    bullish: lastPlusDI > lastMinusDI
+  };
+}
 function calcSupertrend(highs, lows, closes, period, mult) {
   const n = closes.length;
   if (n < period + 1) return null;
@@ -429,6 +475,7 @@ app.get('/analyze/:ticker', async (req, res) => {
 
     const supertrend = calcSupertrend(highs, lows, closes, 10, 3);
     const bollinger = calcBollinger(closes, 20, 2);
+    const adx = calcADX(highs, lows, closes, 14);
     const candlePatterns = detectCandlePatterns(opens, highs, lows, closes);
     const ichimoku = calcIchimoku(highs, lows, closes);
 
@@ -456,7 +503,7 @@ app.get('/analyze/:ticker', async (req, res) => {
       mas, rsi: parseFloat(rsi.toFixed(1)),
       rsiSignal: rsiSignal !== null ? parseFloat(rsiSignal.toFixed(1)) : null,
       rsiAboveSignal, rsiVsSignalPct: rsiVsSignalPct !== null ? parseFloat(rsiVsSignalPct.toFixed(2)) : null, rsiDivergence: rsiDiv,
-      momentum, cci, mfi, macd, bollinger, candlePatterns, supertrend, ichimoku,
+      momentum, cci, mfi, macd, bollinger, candlePatterns, adx, supertrend, ichimoku,
       volume: { current: currentVol, avg20: Math.round(avgVol20), avg5: Math.round(avgVol5), ratio: parseFloat(volRatio.toFixed(2)), priceVol, trend: volTrend, trendPct: parseFloat(volTrendPct.toFixed(1)), posPct: parseFloat(volPosPct.toFixed(0)), max50: Math.round(max50Vol), obvSignal, obvRising, obvDivergence: obvDiv },
       supportResistance: sr
     });
