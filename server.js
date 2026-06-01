@@ -361,6 +361,7 @@ app.get('/analyze/:ticker', async (req, res) => {
     }
 
     const supertrend = calcSupertrend(highs, lows, closes, 10, 3);
+    const bollinger = calcBollinger(closes, 20, 2);
     const ichimoku = calcIchimoku(highs, lows, closes);
 
     const avgVol20 = vols.slice(-20).reduce((a, b) => a + b, 0) / Math.min(vols.length, 20);
