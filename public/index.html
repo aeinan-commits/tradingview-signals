@@ -44,6 +44,7 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 .rsi-marker{position:absolute;top:-6px;width:4px;height:22px;background:#fff;border-radius:2px;transform:translateX(-50%)}
 .rsi-scale{display:flex;justify-content:space-between;font-size:.7rem;color:#666}
 .rsi-desc{font-size:.85rem;color:#888;line-height:1.5;margin-top:12px}
+.mfi-track{position:relative;background:linear-gradient(to right,#00c853 0%,#00c853 20%,#444 20%,#444 80%,#ff4444 80%,#ff4444 100%);height:10px;border-radius:6px;margin:18px 0 8px}
 .sig-box{flex:1;min-width:280px;background:#1a1a1a;border-radius:12px;padding:20px;border-left:4px solid #333}
 .sig-box.green{border-left-color:#00c853}.sig-box.red{border-left-color:#ff4444}.sig-box.yellow{border-left-color:#f0b90b}
 .sig-label{color:#aaa;font-size:.85rem;font-weight:bold;margin-bottom:10px}
@@ -87,8 +88,6 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 .sr-touch{font-size:.7rem;color:#666;margin-left:auto}
 .sr-divider{border:none;border-top:1px dashed #333;margin:6px 0}
 .sr-current-row{background:#f0b90b15;border-radius:8px;padding:8px 12px;margin:6px 0}
-.macd-extra{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:.8rem;color:#aaa}
-.macd-extra b{color:#ccc}
 .error{color:#ff4444;text-align:center;padding:20px}
 .loading{color:#aaa;text-align:center;padding:20px}
 #result{display:none}
@@ -218,49 +217,52 @@ async function run(keepTicker){
     if(d.momentum){
       var mo=d.momentum, moSigCls,moSigTitle,moSigDesc;
       if(mo.signal==='strong_up'){moSigCls='green';moSigTitle='📈 Güçlü Pozitif';moSigDesc='Momentum sıfırın üstünde ve artıyor. Fiyat hızlanarak yükseliyor.';}
-      else if(mo.signal==='weak_up'){moSigCls='yellow';moSigTitle='⚠️ Zayıflayan Pozitif';moSigDesc='Momentum sıfırın üstünde ama ivme azalıyor. Yükseliş güç kaybediyor.';}
-      else if(mo.signal==='strong_down'){moSigCls='red';moSigTitle='📉 Güçlü Negatif';moSigDesc='Momentum sıfırın altında ve düşüyor. Fiyat hızlanarak geriliyor.';}
-      else{moSigCls='yellow';moSigTitle='🔸 Zayıflayan Negatif';moSigDesc='Momentum sıfırın altında ama düşüş ivmesi azalıyor. Toparlanma olabilir.';}
+      else if(mo.signal==='weak_up'){moSigCls='yellow';moSigTitle='⚠️ Zayıflayan Pozitif';moSigDesc='Momentum sıfırın üstünde ama ivme azalıyor.';}
+      else if(mo.signal==='strong_down'){moSigCls='red';moSigTitle='📉 Güçlü Negatif';moSigDesc='Momentum sıfırın altında ve düşüyor.';}
+      else{moSigCls='yellow';moSigTitle='🔸 Zayıflayan Negatif';moSigDesc='Momentum sıfırın altında ama düşüş ivmesi azalıyor.';}
       var moSmaCls=mo.aboveSMA?'green':'red', moSmaTitle=mo.aboveSMA?'▲ Ortalamanın Üstünde':'▼ Ortalamanın Altında';
       var pctTxt=(mo.vsSMApct>=0?'+':'')+mo.vsSMApct+'%';
       var moSmaDesc=mo.aboveSMA?'Momentum 15 barlık ortalamasının üstünde. İvme hızlanıyor.':'Momentum 15 barlık ortalamasının altında. İvme yavaşlıyor.';
       momBoxes=
-        '<div class="sig-box '+moSigCls+'"><div class="sig-label">Momentum (10 Bar)</div><div class="sig-main '+moSigCls+'">'+moSigTitle+'</div><div class="sig-sub">Değer: '+(mo.value>=0?'+':'')+mo.value+' '+(mo.positive?'(sıfır üstü)':'(sıfır altı)')+'</div><div class="sig-desc">'+moSigDesc+'</div>'+divRow(mo.divergence,'Momentum')+'</div>'+
-        '<div class="sig-box '+moSmaCls+'"><div class="sig-label">Momentum vs 15 Bar Ortalaması</div><div class="sig-main '+moSmaCls+'">'+moSmaTitle+'</div><div class="sig-sub">Momentum: '+(mo.value>=0?'+':'')+mo.value+' | 15B Ort: '+(mo.sma>=0?'+':'')+mo.sma+' ('+pctTxt+')</div><div class="sig-desc">'+moSmaDesc+'</div></div>';
+        '<div class="sig-box '+moSigCls+'"><div class="sig-label">Momentum (10 Bar)</div><div class="sig-main '+moSigCls+'">'+moSigTitle+'</div><div class="sig-sub">Değer: '+(mo.value>=0?'+':'')+mo.value+'</div><div class="sig-desc">'+moSigDesc+'</div>'+divRow(mo.divergence,'Momentum')+'</div>'+
+        '<div class="sig-box '+moSmaCls+'"><div class="sig-label">Momentum vs 15 Bar Ort.</div><div class="sig-main '+moSmaCls+'">'+moSmaTitle+'</div><div class="sig-sub">Momentum: '+(mo.value>=0?'+':'')+mo.value+' | 15B Ort: '+(mo.sma>=0?'+':'')+mo.sma+' ('+pctTxt+')</div><div class="sig-desc">'+moSmaDesc+'</div></div>';
     } else { momBoxes='<div class="sig-box"><div class="sig-label">Momentum</div><div class="sig-desc">Yeterli veri yok</div></div>'; }
 
     var cciBoxes='';
     if(d.cci){
       var cc=d.cci, cSigCls,cSigTitle,cSigDesc;
-      if(cc.signal==='strong_up'){cSigCls='green';cSigTitle='📈 Güçlü (+100 üstü)';cSigDesc='CCI +100 üzerinde — güçlü yukarı momentum. Trend yukarı yönlü; aşırı alıma da işaret edebilir.';}
-      else if(cc.signal==='mild_up'){cSigCls='yellow';cSigTitle='🔸 Hafif Pozitif (0/+100)';cSigDesc='CCI sıfır ile +100 arasında — fiyat ortalamasının üstünde ama momentum henüz güçlü değil.';}
-      else if(cc.signal==='strong_down'){cSigCls='red';cSigTitle='📉 Güçlü (-100 altı)';cSigDesc='CCI -100 altında — güçlü aşağı momentum. Aşırı satıma da işaret edebilir.';}
-      else{cSigCls='yellow';cSigTitle='🔸 Hafif Negatif (0/-100)';cSigDesc='CCI sıfır ile -100 arasında — fiyat ortalamasının altında ama düşüş momentumu zayıf.';}
+      if(cc.signal==='strong_up'){cSigCls='green';cSigTitle='📈 Güçlü (+100 üstü)';cSigDesc='CCI +100 üzerinde — güçlü yukarı momentum.';}
+      else if(cc.signal==='mild_up'){cSigCls='yellow';cSigTitle='🔸 Hafif Pozitif (0/+100)';cSigDesc='CCI sıfır ile +100 arasında — yükseliş eğilimi.';}
+      else if(cc.signal==='strong_down'){cSigCls='red';cSigTitle='📉 Güçlü (-100 altı)';cSigDesc='CCI -100 altında — güçlü aşağı momentum.';}
+      else{cSigCls='yellow';cSigTitle='🔸 Hafif Negatif (0/-100)';cSigDesc='CCI sıfır ile -100 arasında — düşüş momentumu zayıf.';}
       var ccSmaCls=cc.aboveSMA?'green':'red', ccSmaTitle=cc.aboveSMA?'▲ Ortalamanın Üstünde':'▼ Ortalamanın Altında';
       var ccPct=(cc.vsSMApct>=0?'+':'')+cc.vsSMApct+'%';
       var ccSmaDesc=cc.aboveSMA?'CCI, 14 barlık ortalamasının üstünde. Momentum hızlanıyor.':'CCI, 14 barlık ortalamasının altında. Momentum yavaşlıyor.';
       cciBoxes=
         '<div class="sig-box '+cSigCls+'"><div class="sig-label">CCI (20) Standart Sinyal</div><div class="sig-main '+cSigCls+'">'+cSigTitle+'</div><div class="sig-sub">CCI Değeri: '+(cc.value>=0?'+':'')+cc.value+'</div><div class="sig-desc">'+cSigDesc+'</div>'+divRow(cc.divergence,'CCI')+'</div>'+
-        '<div class="sig-box '+ccSmaCls+'"><div class="sig-label">CCI vs 14 Bar Ortalaması</div><div class="sig-main '+ccSmaCls+'">'+ccSmaTitle+'</div><div class="sig-sub">CCI: '+(cc.value>=0?'+':'')+cc.value+' | 14B Ort: '+(cc.sma>=0?'+':'')+cc.sma+' ('+ccPct+')</div><div class="sig-desc">'+ccSmaDesc+'</div></div>';
+        '<div class="sig-box '+ccSmaCls+'"><div class="sig-label">CCI vs 14 Bar Ort.</div><div class="sig-main '+ccSmaCls+'">'+ccSmaTitle+'</div><div class="sig-sub">CCI: '+(cc.value>=0?'+':'')+cc.value+' | 14B Ort: '+(cc.sma>=0?'+':'')+cc.sma+' ('+ccPct+')</div><div class="sig-desc">'+ccSmaDesc+'</div></div>';
     } else { cciBoxes='<div class="sig-box"><div class="sig-label">CCI</div><div class="sig-desc">Yeterli veri yok</div></div>'; }
 
-    // MACD
+    // MFI
+    var mfiBox='';
+    if(d.mfi){
+      var mf=d.mfi, mfCls,mfLabel,mfLabelColor,mfDesc;
+      if(mf.value>80){mfCls='#ff4444';mfLabel='Aşırı Alım';mfLabelColor='#ff444422';mfDesc='MFI 80 üstünde — hacimle desteklenen aşırı alım. Para girişi çok güçlü ama düzeltme/geri çekilme riski artıyor.';}
+      else if(mf.value>=50){mfCls='#00c853';mfLabel='Pozitif Akış';mfLabelColor='#00c85322';mfDesc='MFI 50-80 arası — para girişi baskın, alıcılar kontrolde. Sağlıklı yükseliş bölgesi.';}
+      else if(mf.value>20){mfCls='#f0b90b';mfLabel='Negatif Akış';mfLabelColor='#f0b90b22';mfDesc='MFI 20-50 arası — para çıkışı baskın, satıcılar kontrolde. Zayıflık bölgesi.';}
+      else{mfCls='#00c853';mfLabel='Aşırı Satım';mfLabelColor='#00c85322';mfDesc='MFI 20 altında — hacimle desteklenen aşırı satım. Para çıkışı çok güçlü ama tepki alımı/dönüş gelebilir.';}
+      mfiBox='<div class="rsi-box"><div class="rsi-top"><span class="rsi-val" style="color:'+mfCls+'">'+mf.value+'</span><span class="rsi-label" style="background:'+mfLabelColor+';color:'+mfCls+'">'+mfLabel+'</span></div><div class="mfi-track"><div class="rsi-marker" style="left:'+mf.value+'%"></div></div><div class="rsi-scale"><span>0</span><span>20</span><span>80</span><span>100</span></div><div class="rsi-desc">'+mfDesc+'<br><br>MFI, RSI\'a benzer ama hacmi de hesaba katar — bu yüzden paranın gerçekten girip çıktığını daha iyi gösterir.</div>'+divRow(mf.divergence,'MFI')+'</div>';
+    } else { mfiBox='<div class="rsi-box"><div class="sig-label">MFI</div><div class="rsi-desc">Yeterli veri yok</div></div>'; }
+
     var macdBoxes='';
     if(d.macd){
-      var mc=d.macd;
-      // Ana sinyal: konum + kesişim
-      var mSigCls, mSigTitle, mSigDesc;
-      if(mc.cross==='bull'){ mSigCls='green'; mSigTitle='🟢 AL Kesişimi'; mSigDesc='MACD çizgisi sinyal çizgisini YUKARI kesti — yeni alım sinyali. '+(mc.aboveZero?'Sıfırın üstünde olması yükseliş trendini güçlendiriyor.':'Henüz sıfırın altında, dönüş erken aşamada olabilir.'); }
-      else if(mc.cross==='bear'){ mSigCls='red'; mSigTitle='🔴 SAT Kesişimi'; mSigDesc='MACD çizgisi sinyal çizgisini AŞAĞI kesti — yeni satım sinyali. '+(mc.aboveZero?'Hâlâ sıfırın üstünde, bu bir düzeltme olabilir.':'Sıfırın altında olması düşüşü güçlendiriyor.'); }
-      else if(mc.aboveSignal){ mSigCls='green'; mSigTitle='📈 Pozitif Momentum'; mSigDesc='MACD sinyal çizgisinin üstünde'+(mc.histRising?' ve histogram büyüyor — momentum güçleniyor.':' ama histogram daralıyor — momentum zayıflıyor olabilir.')+' '+(mc.aboveZero?'Sıfır üstü: yükseliş trendi.':'Sıfır altı: toparlanma çabası.'); }
-      else { mSigCls='red'; mSigTitle='📉 Negatif Momentum'; mSigDesc='MACD sinyal çizgisinin altında'+(mc.histRising?' ama histogram toparlanıyor — düşüş yavaşlıyor olabilir.':' ve histogram derinleşiyor — düşüş güçleniyor.')+' '+(mc.aboveZero?'Sıfır üstü: zayıflayan yükseliş.':'Sıfır altı: düşüş trendi.'); }
-
-      var zeroCls = mc.aboveZero ? 'green' : 'red';
-      var zeroTitle = mc.aboveZero ? '▲ Sıfırın Üstünde' : '▼ Sıfırın Altında';
-      var zeroDesc = mc.aboveZero
-        ? 'MACD sıfır çizgisinin üstünde — kısa vadeli ortalama uzun vadelinin üstünde, genel eğilim yukarı. Histogram ('+mc.hist+') pozitifse alıcılar baskın.'
-        : 'MACD sıfır çizgisinin altında — kısa vadeli ortalama uzun vadelinin altında, genel eğilim aşağı. Histogram ('+mc.hist+') negatifse satıcılar baskın.';
-
+      var mc=d.macd, mSigCls,mSigTitle,mSigDesc;
+      if(mc.cross==='bull'){ mSigCls='green'; mSigTitle='🟢 AL Kesişimi'; mSigDesc='MACD sinyal çizgisini YUKARI kesti — yeni alım sinyali. '+(mc.aboveZero?'Sıfır üstü, yükseliş güçlü.':'Sıfır altı, dönüş erken aşamada.'); }
+      else if(mc.cross==='bear'){ mSigCls='red'; mSigTitle='🔴 SAT Kesişimi'; mSigDesc='MACD sinyal çizgisini AŞAĞI kesti — yeni satım sinyali. '+(mc.aboveZero?'Sıfır üstü, düzeltme olabilir.':'Sıfır altı, düşüş güçlü.'); }
+      else if(mc.aboveSignal){ mSigCls='green'; mSigTitle='📈 Pozitif Momentum'; mSigDesc='MACD sinyalin üstünde'+(mc.histRising?', histogram büyüyor — momentum güçleniyor.':', histogram daralıyor — momentum zayıflıyor.'); }
+      else { mSigCls='red'; mSigTitle='📉 Negatif Momentum'; mSigDesc='MACD sinyalin altında'+(mc.histRising?', histogram toparlanıyor — düşüş yavaşlıyor.':', histogram derinleşiyor — düşüş güçleniyor.'); }
+      var zeroCls=mc.aboveZero?'green':'red', zeroTitle=mc.aboveZero?'▲ Sıfırın Üstünde':'▼ Sıfırın Altında';
+      var zeroDesc=mc.aboveZero?'MACD sıfırın üstünde — genel eğilim yukarı.':'MACD sıfırın altında — genel eğilim aşağı.';
       macdBoxes=
         '<div class="sig-box '+mSigCls+'"><div class="sig-label">MACD (12-26-9) Sinyal</div><div class="sig-main '+mSigCls+'">'+mSigTitle+'</div><div class="sig-sub">MACD: '+mc.macd+' | Sinyal: '+mc.signal+'</div><div class="sig-desc">'+mSigDesc+'</div>'+divRow(mc.divergence,'MACD')+'</div>'+
         '<div class="sig-box '+zeroCls+'"><div class="sig-label">MACD Sıfır Çizgisi & Histogram</div><div class="sig-main '+zeroCls+'">'+zeroTitle+'</div><div class="sig-sub">Histogram: '+(mc.hist>=0?'+':'')+mc.hist+' '+(mc.histRising?'(büyüyor ↗)':'(daralıyor ↘)')+'</div><div class="sig-desc">'+zeroDesc+'</div></div>';
@@ -295,6 +297,7 @@ async function run(keepTicker){
       '<div class="section"><div class="section-title">Üstel Hareketli Ortalamalar (EMA)</div><div class="grid">'+maBoxes+'</div></div>'+
       '<div class="section"><div class="section-title"><span>Hacim Analizi</span><div class="period-btns"><button id="pb_d1" onclick="setPeriod(\'d1\')">1 Bar</button><button id="pb_d5" onclick="setPeriod(\'d5\')">5 Bar</button><button id="pb_d20" onclick="setPeriod(\'d20\')">20 Bar</button></div></div><div class="grid">'+volBoxes+'</div></div>'+
       '<div class="section"><div class="section-title">RSI (14) — Göreceli Güç Endeksi</div><div class="grid">'+rsiBox+sigBox+'</div></div>'+
+      '<div class="section"><div class="section-title">MFI (14) — Para Akış Endeksi</div><div class="grid">'+mfiBox+'</div></div>'+
       '<div class="section"><div class="section-title">Momentum (10) + 15 Bar Ortalaması</div><div class="grid">'+momBoxes+'</div></div>'+
       '<div class="section"><div class="section-title">CCI (20) + 14 Bar Ortalaması</div><div class="grid">'+cciBoxes+'</div></div>'+
       '<div class="section"><div class="section-title">MACD (12-26-9)</div><div class="grid">'+macdBoxes+'</div></div>'+
