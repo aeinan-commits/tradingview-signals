@@ -82,6 +82,52 @@ function calcMFISeries(highs, lows, closes, vols, period) {
   }
   return mfi;
 }
+// Bollinger Bantları (20, 2)
+function calcBollinger(closes, period, mult) {
+  const n = closes.length;
+  if (n < period) return null;
+  const slice = closes.slice(-period);
+  const sma = slice.reduce((a, b) => a + b, 0) / period;
+  const variance = slice.reduce((a, b) => a + Math.pow(b - sma, 2), 0) / period;
+  const sd = Math.sqrt(variance);
+  const upper = sma + mult * sd;
+  const lower = sma - mult * sd;
+  const price = closes[n - 1];
+  const bandwidth = ((upper - lower) / sma) * 100;
+  const pctB = (price - lower) / (upper - lower);
+
+  // Bant genişliği geçmişi (squeeze tespiti) - son 100 barın bandwidth'i
+  const bwHist = [];
+  for (let i = period; i <= n; i++) {
+    const sl = closes.slice(i - period, i);
+    const m = sl.reduce((a, b) => a + b, 0) / period;
+    const v = sl.reduce((a, b) => a + Math.pow(b - m, 2), 0) / period;
+    const s = Math.sqrt(v);
+    bwHist.push(((2 * mult * s) / m) * 100);
+  }
+  const recentBW = bwHist.slice(-100);
+  const minBW = Math.min(...recentBW);
+  const maxBW = Math.max(...recentBW);
+  // Squeeze: mevcut bant genişliği son 100 barın en dar %20'sinde mi?
+  const bwPos = maxBW === minBW ? 50 : ((bandwidth - minBW) / (maxBW - minBW)) * 100;
+  const squeeze = bwPos < 20;
+
+  let pos;
+  if (price > upper) pos = 'above_upper';
+  else if (price > sma) pos = 'upper_half';
+  else if (price > lower) pos = 'lower_half';
+  else pos = 'below_lower';
+
+  return {
+    upper: parseFloat(upper.toFixed(2)),
+    middle: parseFloat(sma.toFixed(2)),
+    lower: parseFloat(lower.toFixed(2)),
+    bandwidth: parseFloat(bandwidth.toFixed(2)),
+    pctB: parseFloat((pctB * 100).toFixed(1)),
+    bwPos: parseFloat(bwPos.toFixed(0)),
+    squeeze, pos
+  };
+}
 function calcMomentumSeriesAligned(closes, period) {
   const mom = [];
   for (let i = 0; i < closes.length; i++) mom[i] = i < period ? null : closes[i] - closes[i - period];
