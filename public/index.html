@@ -276,6 +276,27 @@ async function run(keepTicker){
         '<div class="sig-box '+zeroCls+'"><div class="sig-label">MACD Sıfır Çizgisi & Histogram</div><div class="sig-main '+zeroCls+'">'+zeroTitle+'</div><div class="sig-sub">Histogram: '+(mc.hist>=0?'+':'')+mc.hist+' '+(mc.histRising?'(büyüyor ↗)':'(daralıyor ↘)')+'</div><div class="sig-desc">'+zeroDesc+'</div></div>';
     } else { macdBoxes='<div class="sig-box"><div class="sig-label">MACD</div><div class="sig-desc">Yeterli veri yok</div></div>'; }
 
+    // BOLLINGER
+    var bollBox='';
+    if(d.bollinger){
+      var bb=d.bollinger;
+      var bbCls,bbTitle,bbDesc;
+      if(bb.pos==='above_upper'){bbCls='red';bbTitle='🔴 Üst Bandın Üstünde';bbDesc='Fiyat üst bandı aştı (%B='+bb.pctB+'). Güçlü yukarı hareket ama aşırı alım — düzeltme/banda geri dönüş gelebilir. Güçlü trendde bant üstünde "yürüme" de görülebilir.';}
+      else if(bb.pos==='upper_half'){bbCls='green';bbTitle='📈 Üst Yarıda';bbDesc='Fiyat orta bandın (₺'+bb.middle+') üstünde, üst banda doğru (%B='+bb.pctB+'). Alıcılar kontrolde, yükseliş eğilimi.';}
+      else if(bb.pos==='lower_half'){bbCls='yellow';bbTitle='📉 Alt Yarıda';bbDesc='Fiyat orta bandın (₺'+bb.middle+') altında, alt banda doğru (%B='+bb.pctB+'). Satıcılar kontrolde, zayıflık eğilimi.';}
+      else{bbCls='green';bbTitle='🟢 Alt Bandın Altında';bbDesc='Fiyat alt bandın altına indi (%B='+bb.pctB+'). Aşırı satım — tepki/banda geri dönüş gelebilir. Güçlü düşüşte bant altında "yürüme" de görülebilir.';}
+
+      var sqCls=bb.squeeze?'purple':'yellow';
+      var sqTitle=bb.squeeze?'🎯 SIKIŞMA (Squeeze)':'Normal Genişlik';
+      var sqDesc=bb.squeeze
+        ? 'Bantlar son 100 barın en dar bölgesinde (genişlik konumu %'+bb.bwPos+'). Volatilite çok düştü — genellikle sert bir hareket (yukarı ya da aşağı) bunu takip eder. Yön için kırılımı bekleyin.'
+        : 'Bant genişliği son 100 barın %'+bb.bwPos+' konumunda. '+(bb.bwPos>80?'Bantlar çok geniş — volatilite yüksek, hareket olgunlaşmış olabilir.':'Volatilite normal seviyelerde.');
+
+      bollBox=
+        '<div class="sig-box '+bbCls+'"><div class="sig-label">Bollinger Konumu (20, 2)</div><div class="sig-main '+bbCls+'">'+bbTitle+'</div><div class="sig-sub">Üst: ₺'+bb.upper+' | Orta: ₺'+bb.middle+' | Alt: ₺'+bb.lower+'</div><div class="sig-desc">'+bbDesc+'</div></div>'+
+        '<div class="sig-box '+sqCls+'"><div class="sig-label">Bant Genişliği & Sıkışma</div><div class="sig-main '+sqCls+'">'+sqTitle+'</div><div class="sig-sub">Genişlik: %'+bb.bandwidth+' | Konum: %'+bb.bwPos+'</div><div class="sig-desc">'+sqDesc+'</div></div>';
+    } else { bollBox='<div class="sig-box"><div class="sig-label">Bollinger</div><div class="sig-desc">Yeterli veri yok</div></div>'; }
+
     var stBox='';
     if(d.supertrend){
       var st=d.supertrend, up=st.direction==='up', stCls=up?'up':'down';
@@ -309,6 +330,7 @@ async function run(keepTicker){
       '<div class="section"><div class="section-title">Momentum (10) + 15 Bar Ortalaması</div><div class="grid">'+momBoxes+'</div></div>'+
       '<div class="section"><div class="section-title">CCI (20) + 14 Bar Ortalaması</div><div class="grid">'+cciBoxes+'</div></div>'+
       '<div class="section"><div class="section-title">MACD (12-26-9)</div><div class="grid">'+macdBoxes+'</div></div>'+
+      '<div class="section"><div class="section-title">Bollinger Bantları (20, 2) — Volatilite</div><div class="grid">'+bollBox+'</div></div>'+
       '<div class="section"><div class="section-title">Supertrend — Trend Yönü</div>'+stBox+'</div>'+
       '<div class="section"><div class="section-title">Ichimoku Bulutu — Kapsamlı Trend Analizi</div>'+ichBox+'</div>';
 
