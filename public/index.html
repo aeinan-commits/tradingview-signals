@@ -251,7 +251,15 @@ async function run(keepTicker){
       else if(mf.value>=50){mfCls='#00c853';mfLabel='Pozitif Akış';mfLabelColor='#00c85322';mfDesc='MFI 50-80 arası — para girişi baskın, alıcılar kontrolde. Sağlıklı yükseliş bölgesi.';}
       else if(mf.value>20){mfCls='#f0b90b';mfLabel='Negatif Akış';mfLabelColor='#f0b90b22';mfDesc='MFI 20-50 arası — para çıkışı baskın, satıcılar kontrolde. Zayıflık bölgesi.';}
       else{mfCls='#00c853';mfLabel='Aşırı Satım';mfLabelColor='#00c85322';mfDesc='MFI 20 altında — hacimle desteklenen aşırı satım. Para çıkışı çok güçlü ama tepki alımı/dönüş gelebilir.';}
-      mfiBox='<div class="rsi-box"><div class="rsi-top"><span class="rsi-val" style="color:'+mfCls+'">'+mf.value+'</span><span class="rsi-label" style="background:'+mfLabelColor+';color:'+mfCls+'">'+mfLabel+'</span></div><div class="mfi-track"><div class="rsi-marker" style="left:'+mf.value+'%"></div></div><div class="rsi-scale"><span>0</span><span>20</span><span>80</span><span>100</span></div><div class="rsi-desc">'+mfDesc+'<br><br>MFI, RSI\'a benzer ama hacmi de hesaba katar — bu yüzden paranın gerçekten girip çıktığını daha iyi gösterir.</div>'+divRow(mf.divergence,'MFI')+'</div>';
+      var mfiMain='<div class="rsi-box"><div class="rsi-top"><span class="rsi-val" style="color:'+mfCls+'">'+mf.value+'</span><span class="rsi-label" style="background:'+mfLabelColor+';color:'+mfCls+'">'+mfLabel+'</span></div><div class="mfi-track"><div class="rsi-marker" style="left:'+mf.value+'%"></div></div><div class="rsi-scale"><span>0</span><span>20</span><span>80</span><span>100</span></div><div class="rsi-desc">'+mfDesc+'<br><br>MFI, RSI\'a benzer ama hacmi de hesaba katar — paranın gerçekten girip çıktığını daha iyi gösterir.</div>'+divRow(mf.divergence,'MFI')+'</div>';
+      var mfiSmaBox;
+      if(mf.sma!==null){
+        var mAbove=mf.aboveSMA, mSmaCls=mAbove?'green':'red';
+        var mPct=(mf.vsSMApct>=0?'+':'')+mf.vsSMApct+'%';
+        var mSmaDesc=mAbove?'MFI, 20 barlık ortalamasının üstünde. Para akışı momentumu hızlanıyor — kısa vadeli güç artışı.':'MFI, 20 barlık ortalamasının altında. Para akışı momentumu yavaşlıyor — kısa vadeli zayıflama.';
+        mfiSmaBox='<div class="sig-box '+mSmaCls+'"><div class="sig-label">MFI vs 20 Bar Ortalaması</div><div class="sig-main '+mSmaCls+'">'+(mAbove?'▲ Ortalamanın Üstünde':'▼ Ortalamanın Altında')+'</div><div class="sig-sub">MFI: '+mf.value+' | 20B Ort: '+mf.sma+' ('+mPct+')</div><div class="sig-desc">'+mSmaDesc+'</div></div>';
+      } else { mfiSmaBox='<div class="sig-box"><div class="sig-label">MFI vs 20 Bar Ortalaması</div><div class="sig-desc">Yeterli veri yok</div></div>'; }
+      mfiBox=mfiMain+mfiSmaBox;
     } else { mfiBox='<div class="rsi-box"><div class="sig-label">MFI</div><div class="rsi-desc">Yeterli veri yok</div></div>'; }
 
     var macdBoxes='';
