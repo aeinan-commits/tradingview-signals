@@ -409,8 +409,47 @@ async function run(keepTicker){
       else if(normScore<=-0.2){ bias='Skor aşağı yönü destekliyor — destek seviyeleri risk altında, stop seviyeleri önemli.'; biasColor='#ff4444'; }
       else{ bias='Skor nötr — yön net değil. Fiyatın hangi seviyeyi (direnç/destek) kıracağını izlemek mantıklı.'; biasColor='#f0b90b'; }
 
+      // Tek hedef: skor+ATR mesafesi, en yakın gerçek seviyeye hizala
+      var targetLine='';
+      (function(){
+        if(!atr) return;
+        var strength=Math.abs(normScore); // 0..1
+        var dir = normScore>=0 ? 1 : -1;
+        var projDist = atr * strength * 3; // skor gücü × 3 ATR
+        var rawTarget = price + dir*projDist;
+        // En yakın gerçek seviyeye hizala
+        var pool = dir>0 ? ups : downs;
+        var target = rawTarget;
+        if(pool.length>0){
+          // rawTarget'a en yakın seviyeyi bul
+          var best=pool[0], bestDiff=Math.abs(pool[0].val-rawTarget);
+          pool.forEach(function(x){ var dd=Math.abs(x.val-rawTarget); if(dd<bestDiff){bestDiff=dd;best=x;} });
+          target=best.val;
+        }
+        // Stop: ters yöndeki ilk seviye, yoksa 1.5 ATR
+        var stopPool = dir>0 ? downs : ups;
+        var stop = dir>0 ? (price - 1.5*atr) : (price + 1.5*atr);
+        if(stopPool.length>0) stop=stopPool[0].val;
+        var tPct=((target-price)/price*100), sPct=((stop-price)/price*100);
+        var tSign=tPct>=0?'+':'', sSign=sPct>=0?'+':'';
+        if(strength<0.05){
+          targetLine='<div style="background:#0f0f0f;border-radius:10px;padding:14px;margin-bottom:16px;text-align:center"><div style="color:#f0b90b;font-size:1rem;font-weight:bold">⚖️ Yön Nötr — Net Hedef Yok</div><div class="vol-desc" style="margin-top:4px">Skor dengede; belirgin bir hedef yön üretilemiyor. Aşağıdaki seviyeleri izleyin.</div></div>';
+        } else {
+          var hColor=dir>0?'#00c853':'#ff4444';
+          targetLine='<div style="background:#0f0f0f;border-radius:10px;padding:16px;margin-bottom:16px">'+
+            '<div style="display:flex;gap:20px;flex-wrap:wrap;justify-content:center;text-align:center">'+
+              '<div><div style="color:'+hColor+';font-size:.8rem;font-weight:bold;text-transform:uppercase">🎯 Olası Hedef</div><div style="font-size:1.5rem;font-weight:bold;color:'+hColor+'">₺'+target.toFixed(2)+'</div><div style="color:'+hColor+';font-size:.85rem">'+tSign+tPct.toFixed(1)+'%</div></div>'+
+              '<div style="border-left:1px solid #2a2a2a"></div>'+
+              '<div><div style="color:#888;font-size:.8rem;font-weight:bold;text-transform:uppercase">🛑 Stop / Risk</div><div style="font-size:1.5rem;font-weight:bold;color:#aaa">₺'+stop.toFixed(2)+'</div><div style="color:#888;font-size:.85rem">'+sSign+sPct.toFixed(1)+'%</div></div>'+
+            '</div>'+
+            '<div class="vol-desc" style="margin-top:10px;text-align:center">Skor ve volatiliteye (ATR) göre hesaplanmış olası seviyelerdir, kesin tahmin değildir.</div>'+
+          '</div>';
+        }
+      })();
+
       targetBox='<div style="background:#1a1a1a;border-radius:16px;padding:24px;margin-top:16px;border-left:5px solid '+biasColor+'">'+
         '<div style="color:#888;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px">🎯 Olası Fiyat Seviyeleri & Hedefler</div>'+
+        targetLine+
         '<div style="display:flex;gap:20px;flex-wrap:wrap">'+
           '<div style="flex:1;min-width:240px"><div style="color:#00c853;font-size:.8rem;font-weight:bold;margin-bottom:6px">▲ YUKARI HEDEFLER</div>'+lvlRows(ups,'#00c853')+'</div>'+
           '<div style="flex:1;min-width:240px"><div style="color:#ff4444;font-size:.8rem;font-weight:bold;margin-bottom:6px">▼ AŞAĞI SEVİYELER (Risk/Stop)</div>'+lvlRows(downs,'#ff4444')+'</div>'+
