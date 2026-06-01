@@ -198,7 +198,75 @@ document.querySelectorAll('.tf-bar button').forEach(function(b){
 });
 
 function fmtVol(n){ if(n>=1e9)return(n/1e9).toFixed(2)+' Mlr'; if(n>=1e6)return(n/1e6).toFixed(2)+' Mn'; if(n>=1e3)return(n/1e3).toFixed(1)+' B'; return n; }
-
+function buildChart(d){
+  var cd=d.chartData;
+  if(!cd || !cd.closes || cd.closes.length<2) return '<div class="vol-desc">Grafik için yeterli veri yok.</div>';
+  var closes=cd.closes;
+  var W=900, H=340, padL=55, padR=15, padT=15, padB=25;
+  var n=closes.length;
+  // Min/max (fiyat + tüm EMA + S/D dahil)
+  var allVals=closes.slice();
+  [cd.ema20,cd.ema50,cd.ema200].forEach(function(s){ if(s) s.forEach(function(v){ if(v!==null&&v!==undefined) allVals.push(v); }); });
+  var srLines=[];
+  if(d.supportResistance){
+    d.supportResistance.resistances.forEach(function(r){ srLines.push({v:r.level,type:'res'}); allVals.push(r.level); });
+    d.supportResistance.supports.forEach(function(s){ srLines.push({v:s.level,type:'sup'}); allVals.push(s.level); });
+  }
+  var minV=Math.min.apply(null,allVals), maxV=Math.max.apply(null,allVals);
+  var pad=(maxV-minV)*0.05; minV-=pad; maxV+=pad;
+  function x(i){ return padL + (i/(n-1))*(W-padL-padR); }
+  function y(v){ return padT + (1-(v-minV)/(maxV-minV))*(H-padT-padB); }
+  function pathOf(arr){
+    var dpath='', started=false;
+    for(var i=0;i<arr.length;i++){
+      var v=arr[i]; if(v===null||v===undefined) continue;
+      dpath += (started?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)+' '; started=true;
+    }
+    return dpath;
+  }
+  // Fiyat alanı (dolgu)
+  var priceLine=pathOf(closes);
+  var areaPath='M'+x(0).toFixed(1)+' '+y(closes[0]).toFixed(1)+' ';
+  for(var i=1;i<n;i++) areaPath+='L'+x(i).toFixed(1)+' '+y(closes[i]).toFixed(1)+' ';
+  areaPath+='L'+x(n-1).toFixed(1)+' '+(H-padB)+' L'+x(0).toFixed(1)+' '+(H-padB)+' Z';
+  // Y ekseni etiketleri (5 kademe)
+  var yLabels='';
+  for(var g=0;g<=4;g++){
+    var val=minV+(maxV-minV)*(g/4); var yy=y(val);
+    yLabels+='<line x1="'+padL+'" y1="'+yy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+yy.toFixed(1)+'" stroke="#222" stroke-width="1"/>';
+    yLabels+='<text x="'+(padL-6)+'" y="'+(yy+3).toFixed(1)+'" fill="#666" font-size="10" text-anchor="end">'+val.toFixed(2)+'</text>';
+  }
+  // S/D çizgileri
+  var srSvg='';
+  srLines.forEach(function(s){
+    var yy=y(s.v); var col=s.type==='res'?'#ff4444':'#00c853';
+    srSvg+='<line x1="'+padL+'" y1="'+yy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+yy.toFixed(1)+'" stroke="'+col+'" stroke-width="1" stroke-dasharray="4 4" opacity="0.5"/>';
+  });
+  // EMA çizgileri
+  var emaSvg='';
+  if(cd.ema20) emaSvg+='<path d="'+pathOf(cd.ema20)+'" fill="none" stroke="#f0b90b" stroke-width="1.3" opacity="0.9"/>';
+  if(cd.ema50) emaSvg+='<path d="'+pathOf(cd.ema50)+'" fill="none" stroke="#2196f3" stroke-width="1.3" opacity="0.9"/>';
+  if(cd.ema200) emaSvg+='<path d="'+pathOf(cd.ema200)+'" fill="none" stroke="#9c27b0" stroke-width="1.3" opacity="0.9"/>';
+  // Son fiyat noktası
+  var lastX=x(n-1), lastY=y(closes[n-1]);
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">'+
+    '<defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f0b90b" stop-opacity="0.25"/><stop offset="100%" stop-color="#f0b90b" stop-opacity="0"/></linearGradient></defs>'+
+    yLabels+srSvg+
+    '<path d="'+areaPath+'" fill="url(#pg)"/>'+
+    '<path d="'+priceLine+'" fill="none" stroke="#fff" stroke-width="1.8"/>'+
+    emaSvg+
+    '<circle cx="'+lastX.toFixed(1)+'" cy="'+lastY.toFixed(1)+'" r="3.5" fill="#f0b90b"/>'+
+    '</svg>';
+  var legend='<div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:10px;font-size:.75rem">'+
+    '<span style="color:#fff">━ Fiyat</span>'+
+    '<span style="color:#f0b90b">━ EMA20</span>'+
+    '<span style="color:#2196f3">━ EMA50</span>'+
+    '<span style="color:#9c27b0">━ EMA200</span>'+
+    '<span style="color:#ff4444">┄ Direnç</span>'+
+    '<span style="color:#00c853">┄ Destek</span>'+
+    '</div>';
+  return '<div style="background:#1a1a1a;border-radius:12px;padding:16px">'+svg+legend+'<div class="vol-desc" style="margin-top:8px;text-align:center">Son '+n+' bar ('+(tfLabels[d.timeframe]||d.timeframe)+'). Noktalı çizgiler destek/direnç seviyeleri.</div></div>';
+}
 function divRow(div, indName){
   var tag,text;
   if(div==='bullish'){tag='<span class="div-tag bull">🟢 POZİTİF UYUMSUZLUK</span>';text='Fiyat daha düşük dip yaparken '+indName+' daha yüksek dip yaptı. Düşüş gücünü kaybediyor — yukarı dönüş sinyali olabilir.';}
@@ -776,6 +844,7 @@ async function run(keepTicker){
 
     r.innerHTML=
       '<div class="price-header"><div class="tk">📈 '+d.ticker+' <span id="favStar" class="fav-star" onclick="toggleFav(currentTicker)">☆</span></div><div class="pr">₺'+d.currentPrice+'</div><div class="tf">'+tfLabels[d.timeframe]+' grafik</div></div>'+
+      '<div class="section"><div class="section-title">Fiyat Grafiği</div>'+buildChart(d)+'</div>'+
       '<div class="section">'+summaryBox+targetBox+'</div>'+
       '<div class="section"><div class="section-title">Destek / Direnç Seviyeleri</div>'+srBox+'</div>'+
       '<div class="section"><div class="section-title">Üstel Hareketli Ortalamalar (EMA)</div><div class="grid">'+maBoxes+'</div></div>'+
