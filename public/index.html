@@ -166,6 +166,87 @@ async function run(keepTicker){
     if(d.error){ r.innerHTML='<p class="error">❌ '+d.error+'</p>'; return; }
     lastData=d;
 
+    // ===== GENEL ÖZET SKORU =====
+    var votes=[]; // {name, vote:-1/0/1, weight, label}
+    function addVote(name,vote,weight,detail){ votes.push({name:name,vote:vote,weight:weight||1,detail:detail}); }
+    var trendStrong = d.adx && d.adx.adx>=25; // ADX güçlüyse trend göstergeleri 2x
+    var tw = trendStrong?2:1;
+
+    // EMA (fiyat EMA50 ve EMA200 üstünde mi) - trend
+    if(d.mas){
+      var ema50=d.mas.find(function(m){return m.period===50;});
+      var ema200=d.mas.find(function(m){return m.period===200;});
+      if(ema50){ addVote('EMA50', ema50.above?1:-1, tw, ema50.above?'Fiyat üstünde':'Fiyat altında'); }
+      if(ema200){ addVote('EMA200', ema200.above?1:-1, tw, ema200.above?'Fiyat üstünde':'Fiyat altında'); }
+    }
+    // RSI - momentum
+    if(d.rsi!==undefined){
+      var rv=d.rsi>70?-1:d.rsi<30?1:(d.rsi>=50?1:-1);
+      addVote('RSI', rv, 1, d.rsi>70?'Aşırı alım':d.rsi<30?'Aşırı satım':(d.rsi>=50?'50 üstü':'50 altı'));
+    }
+    // MFI
+    if(d.mfi){ var mv=d.mfi.value>80?-1:d.mfi.value<20?1:(d.mfi.value>=50?1:-1); addVote('MFI', mv, 1, d.mfi.value>80?'Aşırı alım':d.mfi.value<20?'Aşırı satım':(d.mfi.value>=50?'Pozitif akış':'Negatif akış')); }
+    // Momentum
+    if(d.momentum){ addVote('Momentum', d.momentum.positive?1:-1, 1, d.momentum.positive?'Sıfır üstü':'Sıfır altı'); }
+    // CCI
+    if(d.cci){ var cv=d.cci.value>0?1:-1; addVote('CCI', cv, 1, d.cci.value>0?'Pozitif':'Negatif'); }
+    // MACD - momentum/trend
+    if(d.macd){ addVote('MACD', d.macd.aboveSignal?1:-1, 1, d.macd.aboveSignal?'Sinyal üstünde':'Sinyal altında'); }
+    // Bollinger
+    if(d.bollinger){ var bv=d.bollinger.pctB>50?1:-1; addVote('Bollinger', bv, 1, d.bollinger.pctB>50?'Orta üstü':'Orta altı'); }
+    // Supertrend - trend
+    if(d.supertrend){ addVote('Supertrend', d.supertrend.direction==='up'?1:-1, tw, d.supertrend.direction==='up'?'AL':'SAT'); }
+    // Ichimoku - trend
+    if(d.ichimoku){ var iv=d.ichimoku.pricePos==='above'?1:d.ichimoku.pricePos==='below'?-1:0; addVote('Ichimoku', iv, tw, d.ichimoku.pricePos==='above'?'Bulut üstünde':d.ichimoku.pricePos==='below'?'Bulut altında':'Bulut içinde'); }
+    // ADX yön
+    if(d.adx){ addVote('ADX Yön', d.adx.bullish?1:-1, 1, d.adx.bullish?'+DI baskın':'-DI baskın'); }
+    // Çoklu TF
+    if(d.mtf){
+      ['h1','d1','w1'].forEach(function(key){
+        var o=d.mtf[key]; if(!o)return;
+        var lbl={h1:'1S Trend',d1:'Günlük Trend',w1:'Haftalık Trend'}[key];
+        addVote(lbl, o.dir==='up'?1:o.dir==='down'?-1:0, 1, o.dir==='up'?'Yükseliş':o.dir==='down'?'Düşüş':'Nötr');
+      });
+    }
+    // Mum formasyonu (varsa son yönlü olan)
+    if(d.candlePatterns && d.candlePatterns.patterns && d.candlePatterns.patterns.length>0){
+      var dirPats=d.candlePatterns.patterns.filter(function(p){return p.dir!=='neutral';});
+      if(dirPats.length>0){ var pv=dirPats[0].dir==='bull'?1:-1; addVote('Mum Formasyonu', pv, 1, dirPats[0].name); }
+    }
+
+    var totalScore=0, totalWeight=0;
+    votes.forEach(function(vt){ totalScore+=vt.vote*vt.weight; totalWeight+=vt.weight; });
+    var normScore = totalWeight>0 ? (totalScore/totalWeight) : 0; // -1..+1
+    var pct100 = Math.round(((normScore+1)/2)*100); // 0..100
+    var verdict,vColor,vEmoji;
+    if(normScore>=0.5){verdict='GÜÇLÜ AL';vColor='#00c853';vEmoji='🟢🟢';}
+    else if(normScore>=0.15){verdict='AL';vColor='#00c853';vEmoji='🟢';}
+    else if(normScore>-0.15){verdict='NÖTR';vColor='#f0b90b';vEmoji='🟡';}
+    else if(normScore>-0.5){verdict='SAT';vColor='#ff4444';vEmoji='🔴';}
+    else{verdict='GÜÇLÜ SAT';vColor='#ff4444';vEmoji='🔴🔴';}
+    var upCount=votes.filter(function(v){return v.vote>0;}).length;
+    var downCount=votes.filter(function(v){return v.vote<0;}).length;
+    var neutCount=votes.filter(function(v){return v.vote===0;}).length;
+
+    var voteRows=votes.map(function(vt){
+      var c=vt.vote>0?'#00c853':vt.vote<0?'#ff4444':'#f0b90b';
+      var arrow=vt.vote>0?'▲':vt.vote<0?'▼':'■';
+      var wBadge=vt.weight>1?' <span style="font-size:.65rem;color:#9c27b0">×'+vt.weight+'</span>':'';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #222"><span style="color:'+c+';font-size:1.1rem;width:18px">'+arrow+'</span><span style="min-width:130px;color:#ccc;font-size:.85rem">'+vt.name+wBadge+'</span><span style="color:#888;font-size:.8rem">'+vt.detail+'</span></div>';
+    }).join('');
+
+    var summaryBox='<div style="background:#1a1a1a;border-radius:16px;padding:24px;border:2px solid '+vColor+'">'+
+      '<div style="text-align:center;margin-bottom:18px">'+
+        '<div style="color:#888;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Genel Özet Skoru'+(trendStrong?' (ADX ağırlıklı)':'')+'</div>'+
+        '<div style="font-size:2.4rem;font-weight:bold;color:'+vColor+'">'+vEmoji+' '+verdict+'</div>'+
+        '<div style="font-size:1rem;color:#aaa;margin-top:6px">Skor: %'+pct100+' &nbsp;|&nbsp; '+upCount+' yükseliş, '+neutCount+' nötr, '+downCount+' düşüş</div>'+
+      '</div>'+
+      '<div class="bar-bg" style="height:14px;margin-bottom:20px;background:linear-gradient(to right,#ff4444,#f0b90b,#00c853)"><div style="height:100%;width:2px;background:#fff;margin-left:'+pct100+'%;box-shadow:0 0 6px #fff"></div></div>'+
+      '<div style="color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Gösterge Oyları</div>'+
+      voteRows+
+      '<div class="vol-desc" style="margin-top:14px">Bu skor tüm göstergelerin oylarının ağırlıklı ortalamasıdır. '+(trendStrong?'ADX güçlü trend gösterdiği için (≥25) trend göstergeleri (EMA, Supertrend, Ichimoku) iki kat sayıldı. ':'')+'Yalnızca bir özettir, kesin al-sat tavsiyesi değildir; her zaman kendi değerlendirmenizle birlikte kullanın.</div>'+
+    '</div>';
+
     var sr=d.supportResistance, srRows='';
     sr.resistances.slice().reverse().forEach(function(rz){ srRows+='<div class="sr-row"><span class="sr-tag res">DİRENÇ</span><span class="sr-level">₺'+rz.level+'</span><span class="sr-dist">+'+rz.dist+'% yukarıda</span><span class="sr-touch">'+rz.touches+' temas</span></div>'; });
     srRows+='<div class="sr-current-row"><div class="sr-row" style="padding:0"><span class="sr-tag cur">FİYAT</span><span class="sr-level">₺'+d.currentPrice+'</span><span class="sr-dist">şu anki fiyat</span></div></div>';
@@ -392,6 +473,7 @@ async function run(keepTicker){
 
     r.innerHTML=
       '<div class="price-header"><div class="tk">📈 '+d.ticker+'</div><div class="pr">₺'+d.currentPrice+'</div><div class="tf">'+tfLabels[d.timeframe]+' grafik</div></div>'+
+      '<div class="section">'+summaryBox+'</div>'+
       '<div class="section"><div class="section-title">Destek / Direnç Seviyeleri</div>'+srBox+'</div>'+
       '<div class="section"><div class="section-title">Üstel Hareketli Ortalamalar (EMA)</div><div class="grid">'+maBoxes+'</div></div>'+
       '<div class="section"><div class="section-title"><span>Hacim Analizi</span><div class="period-btns"><button id="pb_d1" onclick="setPeriod(\'d1\')">1 Bar</button><button id="pb_d5" onclick="setPeriod(\'d5\')">5 Bar</button><button id="pb_d20" onclick="setPeriod(\'d20\')">20 Bar</button></div></div><div class="grid">'+volBoxes+'</div></div>'+
