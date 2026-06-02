@@ -443,10 +443,14 @@ async function run(keepTicker){
       else if(od==='bearish') addVote('OBV Uyumsuzluk', -1, 'Negatif');
     }
 
+    // Düşen bıçak durumu: fiyat EMA50 altı + ADX güçlü
+    var ema50obj=d.mas?d.mas.find(function(x){return x.period===50;}):null;
+    var fallingKnife = ema50obj && !ema50obj.above && d.adx && d.adx.adx>=25;
     // --- RSI ---
     if(d.rsi!==undefined){
       var rn=d.rsi<30?1:d.rsi>70?-1:0;
-      addVote('RSI', rn, d.rsi<30?'Aşırı satım':d.rsi>70?'Aşırı alım':'Nötr ('+d.rsi+')');
+      if(rn===1 && fallingKnife){ rn=0; } // düşen bıçak: aşırı satım alım sayılmaz
+      addVote('RSI', rn, d.rsi<30?(fallingKnife?'Aşırı satım (düşen bıçak — nötrlendi)':'Aşırı satım'):d.rsi>70?'Aşırı alım':'Nötr ('+d.rsi+')');
       if(d.rsiAboveSignal!==null && d.rsiAboveSignal!==undefined) addVote('RSI vs 9B Ort', d.rsiAboveSignal?0.5:-0.5, d.rsiAboveSignal?'Üstünde':'Altında');
       if(d.rsiDivergence==='bullish') addVote('RSI Uyumsuzluk', 1, 'Pozitif');
       else if(d.rsiDivergence==='bearish') addVote('RSI Uyumsuzluk', -1, 'Negatif');
@@ -455,7 +459,8 @@ async function run(keepTicker){
     // --- MFI ---
     if(d.mfi){
       var mn=d.mfi.value<20?1:d.mfi.value>80?-1:0;
-      addVote('MFI', mn, d.mfi.value<20?'Aşırı satım':d.mfi.value>80?'Aşırı alım':'Nötr ('+d.mfi.value+')');
+      if(mn===1 && fallingKnife){ mn=0; } // düşen bıçak koruması
+      addVote('MFI', mn, d.mfi.value<20?(fallingKnife?'Aşırı satım (düşen bıçak — nötrlendi)':'Aşırı satım'):d.mfi.value>80?'Aşırı alım':'Nötr ('+d.mfi.value+')');
       if(d.mfi.aboveSMA!==null && d.mfi.aboveSMA!==undefined) addVote('MFI vs 20B Ort', d.mfi.aboveSMA?0.5:-0.5, d.mfi.aboveSMA?'Üstünde':'Altında');
       if(d.mfi.divergence==='bullish') addVote('MFI Uyumsuzluk', 1, 'Pozitif');
       else if(d.mfi.divergence==='bearish') addVote('MFI Uyumsuzluk', -1, 'Negatif');
