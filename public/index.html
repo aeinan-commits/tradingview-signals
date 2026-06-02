@@ -356,7 +356,7 @@ async function run(keepTicker){
     // ===== GENEL ÖZET SKORU =====
     var votes=[]; // {name, points, detail, weighted}
     var trendStrong = d.adx && d.adx.adx>=25;
-    var tMult = trendStrong?1.5:1; // ADX trend çarpanı
+    var tMult = trendStrong?1.15:1; // ADX trend çarpanı
 
     function addVote(name, points, detail, isTrend){
       if(points===null||points===undefined) return;
@@ -392,8 +392,25 @@ async function run(keepTicker){
         if(d.maCross.ema200Up) addVote('EMA200 yeni kırılım', 1, 'Son barda yukarı geçti', true);
       }
     }
-
+    // --- SERT DÜŞÜŞ / TEPE-DÖNÜŞ CEZASI ---
+    (function(){
+      if(!d.chartData || !d.chartData.closes || d.chartData.closes.length<22) return;
+      var cl=d.chartData.closes, n=cl.length;
+      var last=cl[n-1], prev=cl[n-2];
+      var dayChg=((last-prev)/prev)*100;
+      // Son 20 barın tepesi
+      var recentHigh=Math.max.apply(null, cl.slice(n-20));
+      var nearTop = last >= recentHigh*0.95; // zirvenin %5 altına kadar "tepe yakını"
+      if(dayChg<=-3){
+        if(nearTop){
+          votes.push({name:'⚠️ Tepeden Sert Dönüş', points:-2.5, detail:'Son bar %'+dayChg.toFixed(1)+', fiyat zirveye yakın', weighted:-2.5, trend:false});
+        } else {
+          votes.push({name:'⚠️ Sert Düşüş', points:-1.5, detail:'Son bar %'+dayChg.toFixed(1)+' düştü', weighted:-1.5, trend:false});
+        }
+      }
+    })();
     // --- HACİM ---
+ 
     if(d.volume){
       // Hacim + son bar yönü birlikte (açığa satış yok)
       var lastBarUp = d.volume.priceVol && d.volume.priceVol.d1 ? d.volume.priceVol.d1.priceUp : true;
