@@ -610,7 +610,9 @@ async function quickScore(ticker, headers) {
     const curVol = vols[vols.length - 1];
     const prevClose = closes[closes.length - 2];
     const lastBarUp = price > prevClose;
-    if (curVol >= avgVol20) vote(lastBarUp ? 1 : -1, false); else vote(0, false);
+   if (curVol >= avgVol20) vote(lastBarUp ? 1 : -1, false);
+    else if (lastBarUp) vote(-0.5, false); // düşük hacimle yükseliş = zayıf
+    else vote(0, false);
     const p5 = closes[closes.length - 6]; if (p5) vote(price > p5 ? 1 : -1, false);
     const avgVol5 = vols.slice(-5).reduce((a, b) => a + b, 0) / 5;
     const vtp = ((avgVol5 - avgVol20) / avgVol20) * 100;
@@ -660,7 +662,12 @@ async function quickScore(ticker, headers) {
 
     // Ichimoku
     const ich = calcIchimoku(highs, lows, closes);
-    if (ich) { var iq=ich.pricePos==='above'?1.5:ich.pricePos==='below'?-1.5:0; vote(iq,true,tMult); vote(ich.tkCross==='bull'?0.5:ich.tkCross==='bear'?-0.5:0,true,tMult); vote(ich.cloudColor==='green'?0.5:-0.5,true,tMult); }
+    if (ich) {
+      var iq=ich.pricePos==='above'?1.5:ich.pricePos==='below'?-1.5:0; vote(iq,true,tMult);
+      var tkV=ich.tkCross==='bull'?1:ich.tkCross==='bear'?-1:0;
+      var rnV=ich.cloudColor==='green'?1:-1;
+      var cSum=tkV+rnV; vote(cSum>0?0.5:cSum<0?-0.5:0, true, tMult);
+    }
 
     // ADX yön
     if (adx) vote(adx.bullish?1:-1, false);
@@ -668,7 +675,16 @@ async function quickScore(ticker, headers) {
     // Mum
     const cp = detectCandlePatterns(opens, highs, lows, closes);
     if (cp && cp.patterns) cp.patterns.forEach(function(p){ if(p.dir==='bull')vote(1,false); else if(p.dir==='bear')vote(-1,false); });
-
+   // Teyit bonusları (ana skorla tutarlı)
+    if (rsi !== undefined) {
+      if (rsi < 30 && rsiDiv === 'bullish') vote(1, false);
+      else if (rsi > 70 && rsiDiv === 'bearish') vote(-1, false);
+    }
+    if (mfi !== undefined) {
+      var mfiDivVal = detectDivergence(closes, mfiS, 40);
+      if (mfi < 20 && mfiDivVal === 'bullish') vote(1, false);
+      else if (mfi > 80 && mfiDivVal === 'bearish') vote(-1, false);
+    }
     const norm = maxW > 0 ? total / maxW : 0;
     const pct = Math.round(((norm + 1) / 2) * 100);
     let verdict;
