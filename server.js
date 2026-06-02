@@ -600,7 +600,9 @@ async function quickScore(ticker, headers) {
     // Hacim
     const avgVol20 = vols.slice(-20).reduce((a, b) => a + b, 0) / Math.min(vols.length, 20);
     const curVol = vols[vols.length - 1];
-    vote(curVol >= avgVol20 ? 1 : -1, false);
+    const prevClose = closes[closes.length - 2];
+    const lastBarUp = price > prevClose;
+    if (curVol >= avgVol20) vote(lastBarUp ? 1 : -1, false); else vote(0, false);
     const p5 = closes[closes.length - 6]; if (p5) vote(price > p5 ? 1 : -1, false);
     const avgVol5 = vols.slice(-5).reduce((a, b) => a + b, 0) / 5;
     const vtp = ((avgVol5 - avgVol20) / avgVol20) * 100;
