@@ -414,10 +414,15 @@ async function run(keepTicker){
     if(d.volume){
       // Hacim + son bar yönü birlikte (açığa satış yok)
       var lastBarUp = d.volume.priceVol && d.volume.priceVol.d1 ? d.volume.priceVol.d1.priceUp : true;
-      if(d.volume.ratio>=1){
+     if(d.volume.ratio>=1){
         addVote('Hacim Oranı', lastBarUp?1:-1, lastBarUp?'Yüksek hacim + fiyat yukarı (güçlü alım)':'Yüksek hacim + fiyat aşağı (güçlü satış)');
       } else {
-        addVote('Hacim Oranı', 0, 'Ortalama altı hacim (zayıf katılım)');
+        // Hacim düşük + fiyat yukarı → zayıf/güvenilmez yükseliş
+        if(lastBarUp){
+          addVote('Hacim Oranı', -0.5, 'Düşük hacimle yükseliş (zayıf/güvenilmez)');
+        } else {
+          addVote('Hacim Oranı', 0, 'Ortalama altı hacim (zayıf katılım)');
+        }
       }
       var pv5=d.volume.priceVol.d5;
       if(pv5) addVote('Fiyat+Hacim (5 bar)', pv5.priceUp?1:-1, pv5.priceUp?'Olumlu':'Olumsuz');
@@ -523,7 +528,7 @@ async function run(keepTicker){
       });
     }
 
-    // --- ÇOKLU ZAMAN DİLİMİ ---
+    // --- ÇOKLU ZAMAN DİLİMİ (günlük hariç — ana göstergeler zaten günlük) ---
     if(d.mtf){
       var mtfDirs=[];
       function mtfVote(o,label,w){
@@ -533,15 +538,33 @@ async function run(keepTicker){
         votes.push({name:'MTF '+label, points:pt, detail:o.dir==='up'?'Yükseliş':o.dir==='down'?'Düşüş':'Nötr', weighted:pt*w, trend:false});
       }
       mtfVote(d.mtf.h1,'1 Saat',1);
-      mtfVote(d.mtf.d1,'Günlük',1.5);
       mtfVote(d.mtf.w1,'Haftalık',2);
-      // Tam uyum bonusu
-      if(mtfDirs.length===3){
-        if(mtfDirs.every(function(x){return x==='up';})) votes.push({name:'MTF Tam Uyum', points:1, detail:'Üçü de yükseliş', weighted:1, trend:false});
-        else if(mtfDirs.every(function(x){return x==='down';})) votes.push({name:'MTF Tam Uyum', points:-1, detail:'Üçü de düşüş', weighted:-1, trend:false});
+      // Tam uyum bonusu (1S + Haftalık aynı yönde)
+      if(mtfDirs.length===2){
+        if(mtfDirs.every(function(x){return x==='up';})) votes.push({name:'MTF Uyum', points:1, detail:'Kısa+uzun vade yükseliş', weighted:1, trend:false});
+        else if(mtfDirs.every(function(x){return x==='down';})) votes.push({name:'MTF Uyum', points:-1, detail:'Kısa+uzun vade düşüş', weighted:-1, trend:false});
       }
     }
-
+// --- ONAY / TEYİT BONUSLARI ---
+    // Spesifik: RSI veya MFI aşırı + aynı yönde uyumsuzluk
+    if(d.rsi!==undefined && d.rsiDivergence){
+      if(d.rsi<30 && d.rsiDivergence==='bullish') votes.push({name:'✅ Teyit: RSI', points:1, detail:'Aşırı satım + pozitif uyumsuzluk', weighted:1, trend:false});
+      else if(d.rsi>70 && d.rsiDivergence==='bearish') votes.push({name:'✅ Teyit: RSI', points:-1, detail:'Aşırı alım + negatif uyumsuzluk', weighted:-1, trend:false});
+    }
+    if(d.mfi && d.mfi.divergence){
+      if(d.mfi.value<20 && d.mfi.divergence==='bullish') votes.push({name:'✅ Teyit: MFI', points:1, detail:'Aşırı satım + pozitif uyumsuzluk', weighted:1, trend:false});
+      else if(d.mfi.value>80 && d.mfi.divergence==='bearish') votes.push({name:'✅ Teyit: MFI', points:-1, detail:'Aşırı alım + negatif uyumsuzluk', weighted:-1, trend:false});
+    }
+    // Genel: oyların %75+'i aynı yönde
+    (function(){
+      var up=votes.filter(function(v){return v.weighted>0;}).length;
+      var dn=votes.filter(function(v){return v.weighted<0;}).length;
+      var tot=up+dn;
+      if(tot>=8){
+        if(up/tot>=0.75) votes.push({name:'✅ Güçlü Uzlaşı', points:1, detail:'Oyların %'+Math.round(up/tot*100)+'\'i yükseliş yönünde', weighted:1, trend:false});
+        else if(dn/tot>=0.75) votes.push({name:'✅ Güçlü Uzlaşı', points:-1, detail:'Oyların %'+Math.round(dn/tot*100)+'\'i düşüş yönünde', weighted:-1, trend:false});
+      }
+    })();
     // --- TOPLAM & NORMALİZE ---
     var totalW=0, maxPossible=0;
     votes.forEach(function(vt){ totalW+=vt.weighted; maxPossible+=Math.abs(vt.weighted); });
