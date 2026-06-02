@@ -629,15 +629,20 @@ async function quickScore(ticker, headers) {
     const obvDiv = detectDivergence(closes, obvS, 40);
     if (obvDiv === 'bullish') vote(1, false); else if (obvDiv === 'bearish') vote(-1, false);
 
+    // Düşen bıçak: fiyat EMA50 altı + ADX güçlü
+    const ema50val = closes.length >= 50 ? ema(closes, 50) : null;
+    const fallingKnife = ema50val !== null && price < ema50val && adx && adx.adx >= 25;
     // RSI
     const rsiS = calcRSISeries(closes, 14); const rsiV = rsiS.filter(x => x !== null); const rsi = rsiV[rsiV.length-1];
-    vote(rsi < 30 ? 1 : rsi > 70 ? -1 : 0, false);
+    var rsiNorm = rsi < 30 ? 1 : rsi > 70 ? -1 : 0;
+    if (rsiNorm === 1 && fallingKnife) rsiNorm = 0;
+    vote(rsiNorm, false);
     if (rsiV.length >= 9) { var r9 = rsiV.slice(-9).reduce((a,b)=>a+b,0)/9; vote(rsi > r9 ? 0.5 : -0.5, false); }
     const rsiDiv = detectDivergence(closes, rsiS, 40); if (rsiDiv === 'bullish') vote(1,false); else if (rsiDiv === 'bearish') vote(-1,false);
 
     // MFI
     const mfiS = calcMFISeries(highs, lows, closes, vols, 14); const mfiV = mfiS.filter(x => x !== null); const mfi = mfiV[mfiV.length-1];
-    if (mfi !== undefined) { vote(mfi < 20 ? 1 : mfi > 80 ? -1 : 0, false); if (mfiV.length >= 20) { var m20 = mfiV.slice(-20).reduce((a,b)=>a+b,0)/20; vote(mfi > m20 ? 0.5 : -0.5, false); } var md = detectDivergence(closes, mfiS, 40); if (md==='bullish') vote(1,false); else if (md==='bearish') vote(-1,false); }
+    if (mfi !== undefined) { var mfiNorm = mfi < 20 ? 1 : mfi > 80 ? -1 : 0; if (mfiNorm === 1 && fallingKnife) mfiNorm = 0; vote(mfiNorm, false); if (mfiV.length >= 20) { var m20 = mfiV.slice(-20).reduce((a,b)=>a+b,0)/20; vote(mfi > m20 ? 0.5 : -0.5, false); } var md = detectDivergence(closes, mfiS, 40); if (md==='bullish') vote(1,false); else if (md==='bearish') vote(-1,false); }
 
     // Momentum
     const momS = []; for (let i=0;i<closes.length;i++) momS[i] = i<10?null:closes[i]-closes[i-10];
