@@ -565,6 +565,124 @@ app.get('/analyze/:ticker', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ===== BIST100 LİSTESİ =====
+const BIST100 = ['AEFES','AGHOL','AKBNK','AKCNS','AKFGY','AKSA','AKSEN','ALARK','ALBRK','ALFAS','ARCLK','ASELS','ASTOR','BERA','BIMAS','BRSAN','BRYAT','BUCIM','CCOLA','CIMSA','DOHOL','ECILC','EGEEN','EKGYO','ENERY','ENJSA','ENKAI','EREGL','EUPWR','FROTO','GARAN','GESAN','GUBRF','HALKB','HEKTS','IPEKE','ISCTR','ISGYO','ISMEN','KARSN','KCHOL','KONTR','KONYA','KORDS','KOZAA','KOZAL','KRDMD','MAVI','MGROS','MIATK','ODAS','OYAKC','PETKM','PGSUS','SAHOL','SASA','SISE','SKBNK','SMRTG','SOKM','TAVHL','TCELL','THYAO','TKFEN','TOASO','TSKB','TTKOM','TTRAK','TUKAS','TUPRS','ULKER','VAKBN','VESBE','VESTL','YKBNK','ZOREN','AGROT','ASGYO','BINHO','CANTE','CWENE','DESA','DOAS','EUREN','FENER','GENIL','GLYHO','GWIND','IEYHO','KAYSE','KLSER','KMPUR','MPARK','OBAMS','OTKAR','PASEU','REEDR','SAYAS','TABGD','YEOTK','ZRGYO'];
 
+// Bir hisse için HIZLI skor (tek istek, MTF yok) — index.html'deki kurallarla uyumlu
+async function quickScore(ticker, headers) {
+  try {
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.IS?interval=1d&range=2y&events=div%2Csplit`, { headers });
+    const data = await r.json();
+    if (!data.chart || !data.chart.result || !data.chart.result[0]) return null;
+    const q = data.chart.result[0].indicators.quote[0];
+    let valid = q.close.map((p, i) => ({ p, v: q.volume[i], h: q.high[i], l: q.low[i], o: q.open[i] })).filter(x => x.p !== null && x.v !== null && x.h !== null && x.l !== null && x.o !== null);
+    let closes = valid.map(x => x.p), vols = valid.map(x => x.v), highs = valid.map(x => x.h), lows = valid.map(x => x.l), opens = valid.map(x => x.o);
+    if (closes.length < 60) return null;
+
+    const price = closes[closes.length - 1];
+    let total = 0, maxW = 0;
+    function vote(points, isTrend, tMult) { var w = isTrend ? points * tMult : points; total += w; maxW += Math.abs(w); }
+
+    // ADX (trend çarpanı için)
+    const adx = calcADX(highs, lows, closes, 14);
+    const trendStrong = adx && adx.adx >= 25;
+    const tMult = trendStrong ? 1.5 : 1;
+
+    // S/D
+    const sr = findSupportResistance(highs, lows, price, 250);
+    if (sr.supports[0]) { var sd = Math.abs(sr.supports[0].dist); if (sd <= 1) vote(1, false); if (sd >= 4) vote(-1, false); }
+    if (sr.resistances[0]) { var rd = Math.abs(sr.resistances[0].dist); if (rd >= 4) vote(1, false); }
+
+    // EMA
+    const emaPts = { 20: 0.5, 50: 0.5, 200: 1 };
+    [20, 50, 200].forEach(function (p) { if (closes.length >= p) { var e = ema(closes, p); var base = emaPts[p]; vote(price > e ? base : -base, true, tMult); } });
+
+    // Hacim
+    const avgVol20 = vols.slice(-20).reduce((a, b) => a + b, 0) / Math.min(vols.length, 20);
+    const curVol = vols[vols.length - 1];
+    vote(curVol >= avgVol20 ? 1 : -1, false);
+    const p5 = closes[closes.length - 6]; if (p5) vote(price > p5 ? 1 : -1, false);
+    const avgVol5 = vols.slice(-5).reduce((a, b) => a + b, 0) / 5;
+    const vtp = ((avgVol5 - avgVol20) / avgVol20) * 100;
+    if (vtp > 15) vote(1, false); else if (vtp < -15) vote(-1, false);
+    const max50 = Math.max(...vols.slice(-50)); const pp = (curVol / max50) * 100;
+    if (pp > 50) vote(1, false); else if (pp < 25) vote(-1, false);
+
+    // OBV
+    let obv = 0; const obvS = [0];
+    for (let i = 1; i < closes.length; i++) { if (closes[i] > closes[i-1]) obv += vols[i]; else if (closes[i] < closes[i-1]) obv -= vols[i]; obvS.push(obv); }
+    const obvUp = obvS[obvS.length-1] > (obvS[obvS.length-21] || obvS[0]);
+    const prUp = price > (closes[closes.length-21] || closes[0]);
+    vote((obvUp && prUp) || (obvUp && !prUp) ? 1 : -1, false);
+    const obvDiv = detectDivergence(closes, obvS, 40);
+    if (obvDiv === 'bullish') vote(1, false); else if (obvDiv === 'bearish') vote(-1, false);
+
+    // RSI
+    const rsiS = calcRSISeries(closes, 14); const rsiV = rsiS.filter(x => x !== null); const rsi = rsiV[rsiV.length-1];
+    vote(rsi < 30 ? 1 : rsi > 70 ? -1 : 0, false);
+    if (rsiV.length >= 9) { var r9 = rsiV.slice(-9).reduce((a,b)=>a+b,0)/9; vote(rsi > r9 ? 0.5 : -0.5, false); }
+    const rsiDiv = detectDivergence(closes, rsiS, 40); if (rsiDiv === 'bullish') vote(1,false); else if (rsiDiv === 'bearish') vote(-1,false);
+
+    // MFI
+    const mfiS = calcMFISeries(highs, lows, closes, vols, 14); const mfiV = mfiS.filter(x => x !== null); const mfi = mfiV[mfiV.length-1];
+    if (mfi !== undefined) { vote(mfi < 20 ? 1 : mfi > 80 ? -1 : 0, false); if (mfiV.length >= 20) { var m20 = mfiV.slice(-20).reduce((a,b)=>a+b,0)/20; vote(mfi > m20 ? 0.5 : -0.5, false); } var md = detectDivergence(closes, mfiS, 40); if (md==='bullish') vote(1,false); else if (md==='bearish') vote(-1,false); }
+
+    // Momentum
+    const momS = []; for (let i=0;i<closes.length;i++) momS[i] = i<10?null:closes[i]-closes[i-10];
+    const momV = momS.filter(x=>x!==null);
+    if (momV.length >= 15) { var mn=momV[momV.length-1], mp=momV[momV.length-2]; var ms=momV.slice(-15).reduce((a,b)=>a+b,0)/15; var mq = (mn>0&&mn>mp)?1:(mn>0)?0.5:(mn<0&&mn<mp)?-1:-0.5; vote(mq,false); vote(mn>ms?0.5:-0.5,false); var mmd=detectDivergence(closes,momS,40); if(mmd==='bullish')vote(1,false); else if(mmd==='bearish')vote(-1,false); }
+
+    // CCI
+    const cciS = calcCCISeries(highs, lows, closes, 20); const cciV = cciS.filter(x=>x!==null);
+    if (cciV.length >= 14) { var cn=cciV[cciV.length-1]; var cs=cciV.slice(-14).reduce((a,b)=>a+b,0)/14; var cq=cn>100?1:cn>0?0.5:cn<-100?-1:-0.5; vote(cq,false); vote(cn>cs?0.5:-0.5,false); var cd=detectDivergence(closes,cciS,40); if(cd==='bullish')vote(1,false); else if(cd==='bearish')vote(-1,false); }
+
+    // MACD
+    const macdData = calcMACD(closes, 12, 26, 9);
+    if (macdData) { var nn=closes.length; var mcN=macdData.macdLine[nn-1], sgN=macdData.signalLine[nn-1], mcP=macdData.macdLine[nn-2], sgP=macdData.signalLine[nn-2]; var cross='none'; if(mcP!==null&&sgP!==null){if(mcP<=sgP&&mcN>sgN)cross='bull';else if(mcP>=sgP&&mcN<sgN)cross='bear';} var macv=cross==='bull'?1:cross==='bear'?-1:(mcN>sgN?0.5:-0.5); vote(macv,false); vote(mcN>0?0.5:-0.5,false); var mdv=detectDivergence(closes,macdData.macdLine,40); if(mdv==='bullish')vote(1,false); else if(mdv==='bearish')vote(-1,false); }
+
+    // Bollinger
+    const boll = calcBollinger(closes, 20, 2);
+    if (boll) { var bq={above_upper:-1,upper_half:-0.5,lower_half:0.5,below_lower:1}[boll.pos]; vote(bq,false); }
+
+    // Supertrend
+    const st = calcSupertrend(highs, lows, closes, 10, 3);
+    if (st) vote(st.direction==='up'?1.5:-1.5, true, tMult);
+
+    // Ichimoku
+    const ich = calcIchimoku(highs, lows, closes);
+    if (ich) { var iq=ich.pricePos==='above'?1.5:ich.pricePos==='below'?-1.5:0; vote(iq,true,tMult); vote(ich.tkCross==='bull'?0.5:ich.tkCross==='bear'?-0.5:0,true,tMult); vote(ich.cloudColor==='green'?0.5:-0.5,true,tMult); }
+
+    // ADX yön
+    if (adx) vote(adx.bullish?1:-1, false);
+
+    // Mum
+    const cp = detectCandlePatterns(opens, highs, lows, closes);
+    if (cp && cp.patterns) cp.patterns.forEach(function(p){ if(p.dir==='bull')vote(1,false); else if(p.dir==='bear')vote(-1,false); });
+
+    const norm = maxW > 0 ? total / maxW : 0;
+    const pct = Math.round(((norm + 1) / 2) * 100);
+    let verdict;
+    if (norm >= 0.5) verdict = 'GÜÇLÜ AL';
+    else if (norm >= 0.2) verdict = 'AL';
+    else if (norm > -0.2) verdict = 'NÖTR';
+    else if (norm > -0.5) verdict = 'SAT';
+    else verdict = 'GÜÇLÜ SAT';
+    return { ticker, price: parseFloat(price.toFixed(2)), norm: parseFloat(norm.toFixed(3)), pct, verdict };
+  } catch (e) { return null; }
+}
+
+// Tarama endpoint'i (parça parça, timeout'a karşı)
+app.get('/scan', async (req, res) => {
+  const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
+  const results = [];
+  // 5'erli gruplar halinde paralel çek (hız + rate-limit dengesi)
+  for (let i = 0; i < BIST100.length; i += 5) {
+    const chunk = BIST100.slice(i, i + 5);
+    const part = await Promise.all(chunk.map(t => quickScore(t, headers)));
+    part.forEach(p => { if (p) results.push(p); });
+  }
+  results.sort((a, b) => b.norm - a.norm);
+  res.json({ count: results.length, results });
+});
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Sunucu çalışıyor: ${PORT}`));
