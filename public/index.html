@@ -342,6 +342,8 @@ async function run(keepTicker){
   if(!keepTicker){ t=document.getElementById('ti').value.trim().toUpperCase(); }
   if(!t)return;
   currentTicker=t;
+  var scanBox=document.getElementById('scanResult');
+  if(scanBox) scanBox.style.display='none';
   var r=document.getElementById('result');
   r.style.display='block';
   r.innerHTML='<p class="loading">⏳ Yükleniyor...</p>';
