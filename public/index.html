@@ -497,12 +497,17 @@ async function run(keepTicker){
       addVote('Supertrend', d.supertrend.direction==='up'?1.5:-1.5, d.supertrend.direction==='up'?'AL':'SAT', true);
     }
 
-    // --- ICHIMOKU ---
+    // --- ICHIMOKU (bulut + birleşik teyit) ---
     if(d.ichimoku){
       var iq=d.ichimoku.pricePos==='above'?1.5:d.ichimoku.pricePos==='below'?-1.5:0;
       addVote('Ichimoku Bulut', iq, d.ichimoku.pricePos==='above'?'Bulut üstünde':d.ichimoku.pricePos==='below'?'Bulut altında':'Bulut içinde', true);
-      addVote('Ichimoku TK', d.ichimoku.tkCross==='bull'?0.5:d.ichimoku.tkCross==='bear'?-0.5:0, d.ichimoku.tkCross==='bull'?'Pozitif':d.ichimoku.tkCross==='bear'?'Negatif':'Nötr', true);
-      addVote('Ichimoku Bulut Rengi', d.ichimoku.cloudColor==='green'?0.5:-0.5, d.ichimoku.cloudColor==='green'?'Yeşil':'Kırmızı', true);
+      // TK + renk birleşik teyit (±0.5)
+      var tkV=d.ichimoku.tkCross==='bull'?1:d.ichimoku.tkCross==='bear'?-1:0;
+      var rnV=d.ichimoku.cloudColor==='green'?1:-1;
+      var confSum=tkV+rnV;
+      var confPts=confSum>0?0.5:confSum<0?-0.5:0;
+      var confTxt=(d.ichimoku.tkCross==='bull'?'TK pozitif':d.ichimoku.tkCross==='bear'?'TK negatif':'TK nötr')+', '+(d.ichimoku.cloudColor==='green'?'bulut yeşil':'bulut kırmızı');
+      addVote('Ichimoku Teyit', confPts, confTxt, true);
     }
 
     // --- ADX YÖN ---
