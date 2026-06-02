@@ -586,8 +586,16 @@ async function quickScore(ticker, headers) {
     // ADX (trend çarpanı için)
     const adx = calcADX(highs, lows, closes, 14);
     const trendStrong = adx && adx.adx >= 25;
-    const tMult = trendStrong ? 1.5 : 1;
-
+    const tMult = trendStrong ? 1.15 : 1;
+   // Sert düşüş / tepe-dönüş cezası
+    (function(){
+      if(closes.length<22) return;
+      var prevC=closes[closes.length-2];
+      var dayChg=((price-prevC)/prevC)*100;
+      var recentHigh=Math.max(...closes.slice(closes.length-20));
+      var nearTop = price >= recentHigh*0.95;
+      if(dayChg<=-3){ vote(nearTop ? -2.5 : -1.5, false); }
+    })();
     // S/D
     const sr = findSupportResistance(highs, lows, price, 250);
     if (sr.supports[0]) { var sd = Math.abs(sr.supports[0].dist); if (sd <= 1) vote(1, false); if (sd >= 4) vote(-1, false); }
