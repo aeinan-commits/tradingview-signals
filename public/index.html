@@ -105,6 +105,10 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 <button id="btn">Analiz Et</button>
 </div>
 <div id="favBar" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;max-width:700px;margin-left:auto;margin-right:auto"></div>
+<div style="text-align:center;margin-bottom:20px">
+<button id="scanBtn" style="padding:10px 24px;background:#9c27b0;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem">📊 BIST100 Tara</button>
+</div>
+<div id="scanResult" style="display:none;margin-bottom:24px"></div>
 <div class="tf-bar">
 <button data-tf="15m">15dk</button>
 <button data-tf="1h">1 Saat</button>
@@ -198,6 +202,45 @@ document.querySelectorAll('.tf-bar button').forEach(function(b){
 });
 
 function fmtVol(n){ if(n>=1e9)return(n/1e9).toFixed(2)+' Mlr'; if(n>=1e6)return(n/1e6).toFixed(2)+' Mn'; if(n>=1e3)return(n/1e3).toFixed(1)+' B'; return n; }
+  // ===== BIST100 TARAMA =====
+document.getElementById('scanBtn').addEventListener('click', runScan);
+async function runScan(){
+  var btn=document.getElementById('scanBtn');
+  var box=document.getElementById('scanResult');
+  btn.disabled=true; btn.textContent='⏳ Taranıyor... (1-2 dk)';
+  box.style.display='block';
+  box.innerHTML='<div style="background:#1a1a1a;border-radius:12px;padding:30px;text-align:center;color:#aaa">⏳ BIST100 taranıyor, lütfen bekleyin (1-2 dakika sürebilir)...</div>';
+  try{
+    var res=await fetch('/scan');
+    var d=await res.json();
+    if(!d.results){ box.innerHTML='<div class="error">Tarama başarısız.</div>'; btn.disabled=false; btn.textContent='📊 BIST100 Tara'; return; }
+    var groups={'GÜÇLÜ AL':[],'AL':[],'NÖTR':[],'SAT':[],'GÜÇLÜ SAT':[]};
+    d.results.forEach(function(r){ if(groups[r.verdict]) groups[r.verdict].push(r); });
+    var colors={'GÜÇLÜ AL':'#00c853','AL':'#66bb6a','NÖTR':'#f0b90b','SAT':'#ff7043','GÜÇLÜ SAT':'#ff4444'};
+    var emojis={'GÜÇLÜ AL':'🟢🟢','AL':'🟢','NÖTR':'🟡','SAT':'🔴','GÜÇLÜ SAT':'🔴🔴'};
+    var html='<div style="background:#1a1a1a;border-radius:16px;padding:20px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px"><div style="color:#f0b90b;font-size:1.1rem;font-weight:bold">📊 BIST100 Tarama Sonuçları</div><div style="color:#666;font-size:.8rem">'+d.count+' hisse tarandı • '+new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})+'</div></div>';
+    ['GÜÇLÜ AL','AL','NÖTR','SAT','GÜÇLÜ SAT'].forEach(function(g){
+      var arr=groups[g]; if(arr.length===0) return;
+      html+='<div style="margin-bottom:18px"><div style="color:'+colors[g]+';font-size:.85rem;font-weight:bold;margin-bottom:8px;border-bottom:1px solid #2a2a2a;padding-bottom:6px">'+emojis[g]+' '+g+' ('+arr.length+')</div><div style="display:flex;flex-wrap:wrap;gap:8px">';
+      arr.forEach(function(r){
+        html+='<div onclick="openScan(\''+r.ticker+'\')" style="cursor:pointer;background:#0f0f0f;border:1px solid #2a2a2a;border-left:3px solid '+colors[g]+';border-radius:8px;padding:8px 12px;min-width:130px;flex:0 0 auto" onmouseover="this.style.background=\'#252525\'" onmouseout="this.style.background=\'#0f0f0f\'">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.9rem">'+r.ticker+'</span><span style="color:'+colors[g]+';font-weight:bold;font-size:.85rem">%'+r.pct+'</span></div>'+
+          '<div style="color:#888;font-size:.75rem;margin-top:2px">₺'+r.price+'</div>'+
+        '</div>';
+      });
+      html+='</div></div>';
+    });
+    html+='<div class="vol-desc" style="margin-top:8px">Hızlı skor (çoklu zaman dilimi hariç) ile hesaplanmıştır. Bir hisseye tıklayarak tam analizini açabilirsiniz. Yatırım tavsiyesi değildir.</div></div>';
+    box.innerHTML=html;
+  }catch(e){ box.innerHTML='<div class="error">❌ Tarama hatası: '+e.message+'</div>'; }
+  btn.disabled=false; btn.textContent='📊 BIST100 Tara';
+}
+function openScan(t){
+  document.getElementById('scanResult').style.display='none';
+  document.getElementById('ti').value=t; currentTicker=t; run();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
 function buildChart(d){
   var cd=d.chartData;
   if(!cd || !cd.closes || cd.closes.length<2) return '<div class="vol-desc">Grafik için yeterli veri yok.</div>';
