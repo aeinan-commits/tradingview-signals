@@ -556,20 +556,20 @@ async function run(keepTicker){
       var c=vt.weighted>0?'#00c853':vt.weighted<0?'#ff4444':'#888';
       var arrow=vt.weighted>0?'▲':vt.weighted<0?'▼':'■';
       var ptTxt=(vt.weighted>0?'+':'')+(Math.round(vt.weighted*100)/100);
-      var tBadge=vt.trend&&trendStrong?' <span style="font-size:.6rem;color:#9c27b0">×1.5</span>':'';
+      var tBadge=vt.trend&&trendStrong?' <span style="font-size:.6rem;color:#9c27b0">×'+tMult+'</span>':'';
       return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #222"><span style="color:'+c+';font-size:1rem;width:16px">'+arrow+'</span><span style="min-width:150px;color:#ccc;font-size:.82rem">'+vt.name+tBadge+'</span><span style="color:#888;font-size:.78rem;flex:1">'+vt.detail+'</span><span style="color:'+c+';font-size:.82rem;font-weight:bold;min-width:42px;text-align:right">'+ptTxt+'</span></div>';
     }).join('');
     saveScoreHist(currentTicker, d.timeframe, pct100, verdict);
     var summaryBox='<div style="background:#1a1a1a;border-radius:16px;padding:24px;border:2px solid '+vColor+'">'+
       '<div style="text-align:center;margin-bottom:18px">'+
-        '<div style="color:#888;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Genel Özet Skoru'+(trendStrong?' • ADX güçlü trend (×1.5)':'')+'</div>'+
+       '<div style="color:#888;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Genel Özet Skoru'+(trendStrong?' • ADX güçlü trend (×'+tMult+')':'')+'</div>'+
         '<div style="font-size:2.4rem;font-weight:bold;color:'+vColor+'">'+vEmoji+' '+verdict+'</div>'+
         '<div style="font-size:1rem;color:#aaa;margin-top:6px">Skor: %'+pct100+' &nbsp;|&nbsp; '+upC+' yükseliş, '+nC+' nötr, '+dnC+' düşüş</div>'+
       '</div>'+
       '<div class="bar-bg" style="height:14px;margin-bottom:20px;background:linear-gradient(to right,#ff4444,#f0b90b,#00c853)"><div style="height:100%;width:3px;background:#fff;margin-left:calc('+pct100+'% - 1px);box-shadow:0 0 6px #fff"></div></div>'+
       '<div style="color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Gösterge Oyları ('+votes.length+' sinyal)</div>'+
       voteRows+
-      '<div class="vol-desc" style="margin-top:14px">Bu skor tüm göstergelerin ağırlıklı oylarının normalize edilmiş ortalamasıdır (-1 ile +1 arası, %0-100). '+(trendStrong?'ADX≥25 olduğu için trend göstergeleri (EMA, Supertrend, Ichimoku) ×1.5 ağırlıkla sayıldı. ':'')+'Yalnızca bir özettir, kesin al-sat tavsiyesi değildir; kendi değerlendirmenizle birlikte kullanın.</div>'+
+      '<div class="vol-desc" style="margin-top:14px">Bu skor tüm göstergelerin ağırlıklı oylarının normalize edilmiş ortalamasıdır (-1 ile +1 arası, %0-100). '+(trendStrong?'ADX≥25 olduğu için trend göstergeleri (EMA, Supertrend, Ichimoku) ×'+tMult+' ağırlıkla sayıldı. ':'')+
       '<div style="margin-top:14px;text-align:center"><button onclick="toggleHist()" style="background:#0f0f0f;color:#f0b90b;border:1px solid #333;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:.82rem;font-weight:bold">📊 Skor Geçmişi (son 3)</button></div>'+
       '<div id="histPanel" style="display:none;margin-top:12px;background:#0f0f0f;border-radius:10px;padding:14px">'+histPanelHTML(currentTicker)+'</div>'+
     '</div>';
