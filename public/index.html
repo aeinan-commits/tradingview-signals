@@ -395,7 +395,13 @@ async function run(keepTicker){
 
     // --- HACİM ---
     if(d.volume){
-      addVote('Hacim Oranı', d.volume.ratio>=1?1:-1, d.volume.ratio>=1?'Ortalama üstü':'Ortalama altı');
+      // Hacim + son bar yönü birlikte (açığa satış yok)
+      var lastBarUp = d.volume.priceVol && d.volume.priceVol.d1 ? d.volume.priceVol.d1.priceUp : true;
+      if(d.volume.ratio>=1){
+        addVote('Hacim Oranı', lastBarUp?1:-1, lastBarUp?'Yüksek hacim + fiyat yukarı (güçlü alım)':'Yüksek hacim + fiyat aşağı (güçlü satış)');
+      } else {
+        addVote('Hacim Oranı', 0, 'Ortalama altı hacim (zayıf katılım)');
+      }
       var pv5=d.volume.priceVol.d5;
       if(pv5) addVote('Fiyat+Hacim (5 bar)', pv5.priceUp?1:-1, pv5.priceUp?'Olumlu':'Olumsuz');
       if(d.volume.trend==='rising') addVote('Hacim Trendi', 1, 'Artıyor');
