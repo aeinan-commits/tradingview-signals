@@ -766,5 +766,85 @@ app.get('/scan', async (req, res) => {
   results.sort((a, b) => b.norm - a.norm);
   res.json({ count: results.length, results });
 });
+// ============================================================
+// ===== ÖZEL ANALİZ SİSTEMİ (deneysel - ayrı puanlama) =====
+// ============================================================
+async function quickScoreOzel(ticker, headers) {
+  try {
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.IS?interval=1d&range=2y&events=div%2Csplit`, { headers });
+    const data = await r.json();
+    if (!data.chart || !data.chart.result || !data.chart.result[0]) return null;
+    const q = data.chart.result[0].indicators.quote[0];
+    let valid = q.close.map((p, i) => ({ p, v: q.volume[i], h: q.high[i], l: q.low[i], o: q.open[i] })).filter(x => x.p !== null && x.v !== null && x.h !== null && x.l !== null && x.o !== null);
+    let closes = valid.map(x => x.p), vols = valid.map(x => x.v), highs = valid.map(x => x.h), lows = valid.map(x => x.l), opens = valid.map(x => x.o);
+    if (closes.length < 60) return null;
+
+    const price = closes[closes.length - 1];
+    let total = 0, maxW = 0;
+    function vote(points, isTrend, tMult) { var w = isTrend ? points * tMult : points; total += w; maxW += Math.abs(w); }
+
+    const adx = calcADX(highs, lows, closes, 14);
+    const trendStrong = adx && adx.adx >= 25;
+    const tMult = trendStrong ? 1.15 : 1;
+
+    // === ÖZEL KURALLAR BURAYA — şimdilik basit bir taban ===
+    // EMA (sadece üzerinde olmak puan getirir)
+    const emaPts = { 20: 0.25, 50: 0.5, 200: 1 };
+    [20, 50, 200].forEach(function (p) { if (closes.length >= p) { var e = ema(closes, p); if (price > e) vote(emaPts[p], true, tMult); } });
+
+    // RSI
+    const rsiS = calcRSISeries(closes, 14); const rsiV = rsiS.filter(x => x !== null); const rsi = rsiV[rsiV.length - 1];
+    var rsiNorm = rsi < 30 ? 1 : rsi > 70 ? -1 : 0;
+    vote(rsiNorm, false);
+
+    // Supertrend
+    const st = calcSupertrend(highs, lows, closes, 10, 3);
+    if (st) vote(st.direction === 'up' ? 1.5 : -1.5, true, tMult);
+
+    const norm = maxW > 0 ? total / maxW : 0;
+    const pct = Math.round(((norm + 1) / 2) * 100);
+    let verdict;
+    if (norm >= 0.5) verdict = 'GÜÇLÜ AL';
+    else if (norm >= 0.2) verdict = 'AL';
+    else if (norm > -0.2) verdict = 'NÖTR';
+    else if (norm > -0.5) verdict = 'SAT';
+    else verdict = 'GÜÇLÜ SAT';
+
+    // Ekranda gösterilecek ana kutular için ham veriler
+    const avgVol20 = vols.slice(-20).reduce((a, b) => a + b, 0) / Math.min(vols.length, 20);
+    const curVol = vols[vols.length - 1];
+    const mas = [20, 50, 200].map(p => {
+      if (closes.length < p) return null;
+      const e = ema(closes, p);
+      return { period: p, value: parseFloat(e.toFixed(2)), above: price > e, diff: parseFloat((((price - e) / e) * 100).toFixed(2)) };
+    }).filter(x => x);
+
+    return {
+      ticker, price: parseFloat(price.toFixed(2)), norm: parseFloat(norm.toFixed(3)), pct, verdict,
+      rsi: parseFloat(rsi.toFixed(1)),
+      volRatio: parseFloat((curVol / avgVol20).toFixed(2)),
+      mas, adx: adx ? adx.adx : null
+    };
+  } catch (e) { return null; }
+}
+
+app.get('/analyze-ozel/:ticker', async (req, res) => {
+  const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
+  const result = await quickScoreOzel(req.params.ticker.toUpperCase(), headers);
+  if (!result) return res.status(500).json({ error: 'Hisse bulunamadı veya yeterli veri yok' });
+  res.json(result);
+});
+
+app.get('/scan-ozel', async (req, res) => {
+  const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
+  const results = [];
+  for (let i = 0; i < BIST100.length; i += 5) {
+    const chunk = BIST100.slice(i, i + 5);
+    const part = await Promise.all(chunk.map(t => quickScoreOzel(t, headers)));
+    part.forEach(p => { if (p) results.push(p); });
+  }
+  results.sort((a, b) => b.norm - a.norm);
+  res.json({ count: results.length, results });
+});
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Sunucu çalışıyor: ${PORT}`));
