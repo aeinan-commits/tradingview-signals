@@ -845,14 +845,12 @@ async function quickScoreOzel(ticker, headers, tf) {
       if (crossedAndHeld) vote(1, 'EMA200 Kırılımı', 'Son 5 kapanmış barda EMA200 üstüne çıkıp üstünde kaldı.');
     })();
 
-    // KURAL 2: Son 3 kapanmış barın en az 2'sinde fiyat arttı + son (mevcut) bar artıyor
+// KURAL 2: Son 3 kapanmış barın en az 2'sinde fiyat arttı + son (mevcut) bar artıyor
     //          + bu süreçteki her fiyat artışında hacim de arttıysa +1
     (function () {
       if (n < 5) return;
-      // Son bar (mevcut) artıyor mu?
       const currentUp = closes[n - 1] > closes[n - 2];
       if (!currentUp) return;
-      // Son 3 kapanmış bar: indeksler n-4, n-3, n-2 (her biri bir öncekine göre)
       const closedBars = [n - 4, n - 3, n - 2];
       let upCount = 0;
       let allUpHaveVolUp = true;
@@ -863,20 +861,21 @@ async function quickScoreOzel(ticker, headers, tf) {
           if (!(vols[i] > vols[i - 1])) allUpHaveVolUp = false;
         }
       });
-      // KURAL 3: Parabolic SAR — son 3 kapanmış bardan birinde SAR fiyatın altına geçip
+      const currentVolUp = vols[n - 1] > vols[n - 2];
+      if (!currentVolUp) allUpHaveVolUp = false;
+      if (upCount >= 2 && allUpHaveVolUp) vote(1, 'Hacimli Yükseliş', 'Son 3 barın en az 2\'si + mevcut bar yükseliş, hepsinde hacim de arttı.');
+    })();
+
+    // KURAL 3: Parabolic SAR — son 3 kapanmış bardan birinde SAR fiyatın altına geçip
     //          orada kaldıysa (içinde bulunulan bar hariç) +1
     (function () {
       if (n < 6) return;
       const sar = calcPSAR(highs, lows, 0.02, 0.2);
-      // SAR fiyatın "altında" = sar[i] < closes[i] (yükseliş sinyali)
-      // Son 3 kapanmış bar: n-4, n-3, n-2
       let flipped = false;
       for (let i = n - 4; i <= n - 2; i++) {
         if (i < 1 || sar[i] === null || sar[i - 1] === null) continue;
-        // bu barda SAR fiyatın altına yeni geçti mi? (önceki bar üstte/eşit, bu bar altta)
         const justBelow = sar[i - 1] >= closes[i - 1] && sar[i] < closes[i];
         if (!justBelow) continue;
-        // geçişten son kapanmış bara kadar hep altında kaldı mı?
         let held = true;
         for (let j = i; j <= n - 2; j++) {
           if (sar[j] === null || sar[j] >= closes[j]) { held = false; break; }
@@ -885,22 +884,6 @@ async function quickScoreOzel(ticker, headers, tf) {
       }
       if (flipped) vote(1, 'Parabolik SAR', 'Son 3 kapanmış barda SAR fiyatın altına geçip altında kaldı (yükseliş).');
     })();
-      // Mevcut barın artışında da hacim artmalı
-      const currentVolUp = vols[n - 1] > vols[n - 2];
-      if (!currentVolUp) allUpHaveVolUp = false;
-      if (upCount >= 2 && allUpHaveVolUp) vote(1, 'Hacimli Yükseliş', 'Son 3 barın en az 2\'si + mevcut bar yükseliş, hepsinde hacim de arttı.');
-    })();
-
-    // Ekran kutuları için RSI hâlâ hesaplansın (puana katılmıyor)
-    const rsiS = calcRSISeries(closes, 14); const rsiV = rsiS.filter(x => x !== null); const rsi = rsiV.length ? rsiV[rsiV.length - 1] : 0;
-
-    return {
-      ticker, price: parseFloat(price.toFixed(2)),
-      total: parseFloat(total.toFixed(2)),
-      breakdown
-    };
-  } catch (e) { return null; }
-}
 
 app.get('/analyze-ozel/:ticker', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
