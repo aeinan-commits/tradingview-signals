@@ -483,8 +483,8 @@ async function run(keepTicker){
       else if(d.volume.trend==='falling') addVote('Hacim Trendi', -1, 'Azalıyor');
       else addVote('Hacim Trendi', 0, 'Sabit');
       var pp=d.volume.posPct;
-      if(pp>50) addVote('50 Bar Hacim Konumu', 1, '%'+pp+' (>50)');
-      else if(pp<25) addVote('50 Bar Hacim Konumu', -1, '%'+pp+' (<25)');
+      if(pp>50) addVote('50 Bar Hacim Konumu', 0.5, '%'+pp+' (>50)');
+      else if(pp<25) addVote('50 Bar Hacim Konumu', -0.5, '%'+pp+' (<25)');
       else addVote('50 Bar Hacim Konumu', 0, '%'+pp);
       // OBV ana sinyal
       var os=d.volume.obvSignal;
