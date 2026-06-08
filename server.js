@@ -787,19 +787,58 @@ async function quickScoreOzel(ticker, headers) {
     const trendStrong = adx && adx.adx >= 25;
     const tMult = trendStrong ? 1.15 : 1;
 
-    // === ÖZEL KURALLAR BURAYA — şimdilik basit bir taban ===
-    // EMA (sadece üzerinde olmak puan getirir)
-    const emaPts = { 20: 0.25, 50: 0.5, 200: 1 };
-    [20, 50, 200].forEach(function (p) { if (closes.length >= p) { var e = ema(closes, p); if (price > e) vote(emaPts[p], true, tMult); } });
+    // === ÖZEL KURALLAR ===
+    // Not: "içinde bulunulan bar" = son bar (closes son eleman, henüz kapanmamış kabul ediyoruz).
+    // "Kapanmış barlar" = son bar hariç öncekiler.
+    const n = closes.length;
+    const ema200series = emaSeries(closes, 200); // hizalı EMA200 serisi
 
-    // RSI
-    const rsiS = calcRSISeries(closes, 14); const rsiV = rsiS.filter(x => x !== null); const rsi = rsiV[rsiV.length - 1];
-    var rsiNorm = rsi < 30 ? 1 : rsi > 70 ? -1 : 0;
-    vote(rsiNorm, false);
+    // KURAL 1: Son 5 KAPANMIŞ bardan birinde EMA200 üstüne çıkıp üstünde kaldıysa +1
+    // (içinde bulunulan son bar hariç → indeksler n-2 ... n-6)
+    (function () {
+      if (n < 7 || ema200series[n - 2] === null) return;
+      // Son 5 kapanmış bar: n-6 .. n-2
+      let crossedAndHeld = false;
+      for (let i = n - 6; i <= n - 2; i++) {
+        if (i < 1 || ema200series[i] === null || ema200series[i - 1] === null) continue;
+        const justCrossed = closes[i - 1] <= ema200series[i - 1] && closes[i] > ema200series[i];
+        if (!justCrossed) continue;
+        // Kırılımdan sonra (i'den n-2'ye kadar) hep üstünde kalmış mı?
+        let held = true;
+        for (let j = i; j <= n - 2; j++) {
+          if (ema200series[j] === null || closes[j] <= ema200series[j]) { held = false; break; }
+        }
+        if (held) { crossedAndHeld = true; break; }
+      }
+      if (crossedAndHeld) vote(1, false);
+    })();
 
-    // Supertrend
-    const st = calcSupertrend(highs, lows, closes, 10, 3);
-    if (st) vote(st.direction === 'up' ? 1.5 : -1.5, true, tMult);
+    // KURAL 2: Son 3 kapanmış barın en az 2'sinde fiyat arttı + son (mevcut) bar artıyor
+    //          + bu süreçteki her fiyat artışında hacim de arttıysa +1
+    (function () {
+      if (n < 5) return;
+      // Son bar (mevcut) artıyor mu?
+      const currentUp = closes[n - 1] > closes[n - 2];
+      if (!currentUp) return;
+      // Son 3 kapanmış bar: indeksler n-4, n-3, n-2 (her biri bir öncekine göre)
+      const closedBars = [n - 4, n - 3, n - 2];
+      let upCount = 0;
+      let allUpHaveVolUp = true;
+      closedBars.forEach(function (i) {
+        const priceUp = closes[i] > closes[i - 1];
+        if (priceUp) {
+          upCount++;
+          if (!(vols[i] > vols[i - 1])) allUpHaveVolUp = false;
+        }
+      });
+      // Mevcut barın artışında da hacim artmalı
+      const currentVolUp = vols[n - 1] > vols[n - 2];
+      if (!currentVolUp) allUpHaveVolUp = false;
+      if (upCount >= 2 && allUpHaveVolUp) vote(1, false);
+    })();
+
+    // Ekran kutuları için RSI hâlâ hesaplansın (puana katılmıyor)
+    const rsiS = calcRSISeries(closes, 14); const rsiV = rsiS.filter(x => x !== null); const rsi = rsiV.length ? rsiV[rsiV.length - 1] : 0;
 
     const norm = maxW > 0 ? total / maxW : 0;
     const pct = Math.round(((norm + 1) / 2) * 100);
