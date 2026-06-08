@@ -661,7 +661,40 @@ async function quickScore(ticker, headers) {
     // Bollinger
     const boll = calcBollinger(closes, 20, 2);
     if (boll) { var bq={above_upper:-1,upper_half:-0.5,lower_half:0.5,below_lower:1}[boll.pos]; vote(bq,false); }
-
+    
+// Parabolic SAR (standart: adım 0.02, maksimum 0.2)
+function calcPSAR(highs, lows, step, maxStep) {
+  const n = highs.length;
+  if (n < 3) return [];
+  const sar = new Array(n).fill(null);
+  let isUp = highs[1] >= highs[0];      // başlangıç trend yönü
+  let ep = isUp ? highs[1] : lows[1];   // extreme point
+  let af = step;                         // acceleration factor
+  sar[1] = isUp ? lows[0] : highs[0];
+  for (let i = 2; i < n; i++) {
+    let prevSar = sar[i - 1];
+    let curSar = prevSar + af * (ep - prevSar);
+    if (isUp) {
+      // yükseliş trendinde SAR son iki bardaki en düşüğü aşamaz
+      curSar = Math.min(curSar, lows[i - 1], lows[i - 2]);
+      if (lows[i] < curSar) {
+        // trend döndü → düşüşe
+        isUp = false; curSar = ep; ep = lows[i]; af = step;
+      } else {
+        if (highs[i] > ep) { ep = highs[i]; af = Math.min(af + step, maxStep); }
+      }
+    } else {
+      curSar = Math.max(curSar, highs[i - 1], highs[i - 2]);
+      if (highs[i] > curSar) {
+        isUp = true; curSar = ep; ep = highs[i]; af = step;
+      } else {
+        if (lows[i] < ep) { ep = lows[i]; af = Math.min(af + step, maxStep); }
+      }
+    }
+    sar[i] = curSar;
+  }
+  return sar;
+}
     // Supertrend
     const st = calcSupertrend(highs, lows, closes, 10, 3);
     if (st) vote(st.direction==='up'?1.5:-1.5, true, tMult);
@@ -830,6 +863,28 @@ async function quickScoreOzel(ticker, headers, tf) {
           if (!(vols[i] > vols[i - 1])) allUpHaveVolUp = false;
         }
       });
+      // KURAL 3: Parabolic SAR — son 3 kapanmış bardan birinde SAR fiyatın altına geçip
+    //          orada kaldıysa (içinde bulunulan bar hariç) +1
+    (function () {
+      if (n < 6) return;
+      const sar = calcPSAR(highs, lows, 0.02, 0.2);
+      // SAR fiyatın "altında" = sar[i] < closes[i] (yükseliş sinyali)
+      // Son 3 kapanmış bar: n-4, n-3, n-2
+      let flipped = false;
+      for (let i = n - 4; i <= n - 2; i++) {
+        if (i < 1 || sar[i] === null || sar[i - 1] === null) continue;
+        // bu barda SAR fiyatın altına yeni geçti mi? (önceki bar üstte/eşit, bu bar altta)
+        const justBelow = sar[i - 1] >= closes[i - 1] && sar[i] < closes[i];
+        if (!justBelow) continue;
+        // geçişten son kapanmış bara kadar hep altında kaldı mı?
+        let held = true;
+        for (let j = i; j <= n - 2; j++) {
+          if (sar[j] === null || sar[j] >= closes[j]) { held = false; break; }
+        }
+        if (held) { flipped = true; break; }
+      }
+      if (flipped) vote(1, 'Parabolik SAR', 'Son 3 kapanmış barda SAR fiyatın altına geçip altında kaldı (yükseliş).');
+    })();
       // Mevcut barın artışında da hacim artmalı
       const currentVolUp = vols[n - 1] > vols[n - 2];
       if (!currentVolUp) allUpHaveVolUp = false;
