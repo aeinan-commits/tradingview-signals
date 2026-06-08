@@ -583,10 +583,6 @@ async function quickScore(ticker, headers) {
     let total = 0, maxW = 0;
     function vote(points, isTrend, tMult) { var w = isTrend ? points * tMult : points; total += w; maxW += Math.abs(w); }
 
-    // ADX (trend çarpanı için)
-    const adx = calcADX(highs, lows, closes, 14);
-    const trendStrong = adx && adx.adx >= 25;
-    const tMult = trendStrong ? 1.15 : 1;
    // Sert düşüş / tepe-dönüş cezası
     (function(){
       if(closes.length<22) return;
@@ -781,7 +777,7 @@ async function quickScoreOzel(ticker, headers) {
 
     const price = closes[closes.length - 1];
     let total = 0, maxW = 0;
-    function vote(points, isTrend, tMult) { var w = isTrend ? points * tMult : points; total += w; maxW += Math.abs(w); }
+    function vote(points) { total += points; maxW += Math.abs(points); }
 
     const adx = calcADX(highs, lows, closes, 14);
     const trendStrong = adx && adx.adx >= 25;
@@ -842,12 +838,6 @@ async function quickScoreOzel(ticker, headers) {
 
     const norm = maxW > 0 ? total / maxW : 0;
     const pct = Math.round(((norm + 1) / 2) * 100);
-    let verdict;
-    if (norm >= 0.5) verdict = 'GÜÇLÜ AL';
-    else if (norm >= 0.2) verdict = 'AL';
-    else if (norm > -0.2) verdict = 'NÖTR';
-    else if (norm > -0.5) verdict = 'SAT';
-    else verdict = 'GÜÇLÜ SAT';
 
     // Ekranda gösterilecek ana kutular için ham veriler
     const avgVol20 = vols.slice(-20).reduce((a, b) => a + b, 0) / Math.min(vols.length, 20);
@@ -859,10 +849,12 @@ async function quickScoreOzel(ticker, headers) {
     }).filter(x => x);
 
     return {
-      ticker, price: parseFloat(price.toFixed(2)), norm: parseFloat(norm.toFixed(3)), pct, verdict,
+      ticker, price: parseFloat(price.toFixed(2)),
+      total: parseFloat(total.toFixed(2)),
+      norm: parseFloat(norm.toFixed(3)), pct,
       rsi: parseFloat(rsi.toFixed(1)),
       volRatio: parseFloat((curVol / avgVol20).toFixed(2)),
-      mas, adx: adx ? adx.adx : null
+      mas
     };
   } catch (e) { return null; }
 }
