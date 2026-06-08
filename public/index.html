@@ -232,6 +232,33 @@ async function runScan(){
       html+='</div></div>';
     });
     // ===== STRATEJİLERE UYAN HİSSELER (sadece sinyal verenler) =====
+    // ===== ÇOKLU STRATEJİ KESİŞİMİ (en az 3 stratejide olanlar) =====
+    var stratKeys=['momentum','trend','high52','relStrength','meanRev','vpa'];
+    var stratNames={momentum:'Momentum',trend:'Trend',high52:'52H Zirve',relStrength:'Göreceli Güç',meanRev:'Ort. Dönüş',vpa:'VPA'};
+    var multi=d.results.map(function(r){
+      if(!r.strategies) return null;
+      var hits=stratKeys.filter(function(k){ return r.strategies[k]; });
+      return hits.length>=3 ? {r:r, hits:hits} : null;
+    }).filter(function(x){ return x; });
+    multi.sort(function(a,b){ return b.hits.length-a.hits.length || b.r.norm-a.r.norm; });
+    if(multi.length>0){
+      var vColors={'GÜÇLÜ AL':'#00c853','AL':'#66bb6a','NÖTR':'#f0b90b','SAT':'#ff7043','GÜÇLÜ SAT':'#ff4444'};
+      var vEmojis={'GÜÇLÜ AL':'🟢🟢','AL':'🟢','NÖTR':'🟡','SAT':'🔴','GÜÇLÜ SAT':'🔴🔴'};
+      html+='<div style="margin-top:24px;padding:16px;border:2px solid #f0b90b;border-radius:14px;background:#f0b90b0a"><div style="color:#f0b90b;font-size:1.05rem;font-weight:bold;margin-bottom:4px">⭐ Öne Çıkanlar — En Az 3 Stratejide</div><div class="vol-desc" style="margin-bottom:14px">Birden fazla stratejinin aynı anda işaret ettiği hisseler. Yanlarında genel teknik skor sonucu gösterilir.</div>';
+      multi.forEach(function(m){
+        var r=m.r;
+        var vc=vColors[r.verdict]||'#888', ve=vEmojis[r.verdict]||'';
+        var tags=m.hits.map(function(k){ return '<span style="display:inline-block;background:#9c27b022;color:#ce93d8;font-size:.68rem;padding:2px 7px;border-radius:5px;margin:2px 3px 0 0">'+stratNames[k]+'</span>'; }).join('');
+        html+='<div onclick="openScan(\''+r.ticker+'\')" style="cursor:pointer;background:#0f0f0f;border:1px solid #2a2a2a;border-left:4px solid '+vc+';border-radius:10px;padding:12px;margin-bottom:8px" onmouseover="this.style.background=\'#252525\'" onmouseout="this.style.background=\'#0f0f0f\'">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
+            '<span style="color:#f0b90b;font-weight:bold;font-size:1rem">'+r.ticker+' <span style="color:#666;font-weight:normal;font-size:.8rem">₺'+r.price+'</span></span>'+
+            '<span style="color:'+vc+';font-weight:bold;font-size:.88rem">'+ve+' '+r.verdict+' &nbsp;%'+r.pct+'</span>'+
+          '</div>'+
+          '<div style="margin-top:6px"><span style="color:#888;font-size:.72rem">'+m.hits.length+' strateji: </span>'+tags+'</div>'+
+        '</div>';
+      });
+      html+='</div>';
+    }
     var stratDefs=[
       {key:'momentum', title:'🚀 Momentum', sub:'Son 3 ayda güçlü yükseliş'},
       {key:'trend', title:'📈 Trend Takibi', sub:'Fiyat > EMA50 > EMA200'},
