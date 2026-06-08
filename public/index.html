@@ -108,7 +108,6 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 <input type="text" id="tiOzel" placeholder="Özel analiz için hisse kodu" maxlength="10"/>
 <button id="btnOzel" style="background:#a5d6a7;color:#1a1a1a">Özel Analiz</button>
 </div>
-<div id="resultOzel" style="display:none;margin-bottom:24px"></div>
 <div id="favBar" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;max-width:700px;margin-left:auto;margin-right:auto"></div>
 <div style="text-align:center;margin-bottom:20px">
 <button id="scanBtn" style="padding:10px 24px;background:#9c27b0;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem">📊 BIST100 Tara</button>
@@ -123,6 +122,7 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 <button data-tf="1wk">Haftalık</button>
 <button data-tf="1mo">Aylık</button>
 </div>
+<div id="resultOzel" style="display:none;margin-top:24px"></div>
 <div id="result"></div>
 <script>
 var lastData=null, selectedPeriod='d1', selectedTF='1d', currentTicker='';
