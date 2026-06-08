@@ -204,6 +204,7 @@ document.querySelectorAll('.tf-bar button').forEach(function(b){
     document.querySelectorAll('.tf-bar button').forEach(function(x){ x.className=''; });
     b.className='active';
     if(currentTicker) run(true);
+    if(document.getElementById('resultOzel').style.display==='block' && document.getElementById('tiOzel').value.trim()) runOzel();
   });
 });
 
@@ -1068,7 +1069,7 @@ async function runOzel(){
   box.style.display='block';
   box.innerHTML='<p class="loading">⏳ Özel analiz yükleniyor...</p>';
   try{
-    var res=await fetch('/analyze-ozel/'+t);
+    var res=await fetch('/analyze-ozel/'+t+'?tf='+selectedTF);
     var d=await res.json();
     if(d.error){ box.innerHTML='<p class="error">❌ '+d.error+'</p>'; return; }
     box.innerHTML=ozelCard(d);
@@ -1083,7 +1084,7 @@ async function runScanOzel(){
   box.style.display='block';
   box.innerHTML='<div style="background:#1a1a1a;border-radius:12px;padding:30px;text-align:center;color:#aaa">⏳ Özel tarama çalışıyor (1-2 dk)...</div>';
   try{
-    var res=await fetch('/scan-ozel');
+    var res=await fetch('/scan-ozel?tf='+selectedTF);
     var d=await res.json();
     if(!d.results){ box.innerHTML='<div class="error">Tarama başarısız.</div>'; btn.disabled=false; btn.textContent='🧪 BIST100 Tara Özel'; return; }
     var html='<div style="background:#1a1a1a;border-radius:16px;padding:20px"><div style="color:#a5d6a7;font-size:1.1rem;font-weight:bold;margin-bottom:16px">🧪 Özel Tarama Sonuçları ('+d.count+' hisse) — puana göre sıralı</div><div style="display:flex;flex-wrap:wrap;gap:8px">';
