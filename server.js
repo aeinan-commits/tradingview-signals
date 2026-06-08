@@ -618,7 +618,7 @@ async function quickScore(ticker, headers) {
     const vtp = ((avgVol5 - avgVol20) / avgVol20) * 100;
     if (vtp > 15) vote(1, false); else if (vtp < -15) vote(-1, false);
     const max50 = Math.max(...vols.slice(-50)); const pp = (curVol / max50) * 100;
-    if (pp > 50) vote(1, false); else if (pp < 25) vote(-1, false);
+    if (pp > 50) vote(0.5, false); else if (pp < 25) vote(-0.5, false);
 
     // OBV
     let obv = 0; const obvS = [0];
