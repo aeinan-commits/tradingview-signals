@@ -104,9 +104,15 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 <input type="text" id="ti" placeholder="Hisse kodu (örn: THYAO)" maxlength="10"/>
 <button id="btn">Analiz Et</button>
 </div>
+<div class="search">
+<input type="text" id="tiOzel" placeholder="Özel analiz için hisse kodu" maxlength="10"/>
+<button id="btnOzel" style="background:#9c27b0;color:#fff">Özel Analiz</button>
+</div>
+<div id="resultOzel" style="display:none;margin-bottom:24px"></div>
 <div id="favBar" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;max-width:700px;margin-left:auto;margin-right:auto"></div>
 <div style="text-align:center;margin-bottom:20px">
 <button id="scanBtn" style="padding:10px 24px;background:#9c27b0;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem">📊 BIST100 Tara</button>
+<button id="scanBtnOzel" style="padding:10px 24px;background:#7b1fa2;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem;margin-left:8px">🧪 BIST100 Tara Özel</button>
 </div>
 <div id="scanResult" style="display:none;margin-bottom:24px"></div>
 <div class="tf-bar">
@@ -1023,6 +1029,77 @@ async function run(keepTicker){
     updateStar();
 
   }catch(e){ r.innerHTML='<p class="error">❌ Hata: '+e.message+'</p>'; }
+}
+  // ===== ÖZEL ANALİZ SİSTEMİ =====
+document.getElementById('btnOzel').addEventListener('click', runOzel);
+document.getElementById('tiOzel').addEventListener('keypress', function(e){ if(e.key==='Enter') runOzel(); });
+document.getElementById('scanBtnOzel').addEventListener('click', runScanOzel);
+
+function ozelVerdictColor(v){ return {'GÜÇLÜ AL':'#00c853','AL':'#66bb6a','NÖTR':'#f0b90b','SAT':'#ff7043','GÜÇLÜ SAT':'#ff4444'}[v]||'#888'; }
+function ozelVerdictEmoji(v){ return {'GÜÇLÜ AL':'🟢🟢','AL':'🟢','NÖTR':'🟡','SAT':'🔴','GÜÇLÜ SAT':'🔴🔴'}[v]||''; }
+
+function ozelCard(d){
+  var vc=ozelVerdictColor(d.verdict), ve=ozelVerdictEmoji(d.verdict);
+  var maBoxes=d.mas.map(function(m){
+    var cls=m.above?'up':'down', sign=m.diff>=0?'+':'';
+    return '<div class="ma-box '+cls+'"><div class="ma-name">EMA'+m.period+'</div><div class="ma-value">₺'+m.value+'</div><div class="ma-diff '+cls+'">'+sign+m.diff+'%</div><div class="ma-status">'+(m.above?'Fiyat üstünde':'Fiyat altında')+'</div></div>';
+  }).join('');
+  return '<div style="background:#1a1a1a;border-radius:16px;padding:22px;border:2px solid '+vc+'">'+
+    '<div style="text-align:center;margin-bottom:16px"><div style="color:#9c27b0;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🧪 Özel Analiz — '+d.ticker+'</div>'+
+    '<div style="font-size:2.2rem;font-weight:bold;color:'+vc+'">'+ve+' '+d.verdict+'</div>'+
+    '<div style="color:#aaa;margin-top:6px">₺'+d.price+' &nbsp;|&nbsp; Skor: %'+d.pct+'</div></div>'+
+    '<div class="bar-bg" style="height:12px;margin-bottom:18px;background:linear-gradient(to right,#ff4444,#f0b90b,#00c853)"><div style="height:100%;width:3px;background:#fff;margin-left:calc('+d.pct+'% - 1px)"></div></div>'+
+    '<div class="grid">'+maBoxes+'</div>'+
+    '<div class="grid" style="margin-top:12px">'+
+      '<div class="vol-box"><div class="vol-label">RSI (14)</div><div class="vol-main">'+d.rsi+'</div></div>'+
+      '<div class="vol-box"><div class="vol-label">Hacim Oranı</div><div class="vol-main">'+d.volRatio+'x</div></div>'+
+      '<div class="vol-box"><div class="vol-label">ADX</div><div class="vol-main">'+(d.adx!==null?d.adx:'-')+'</div></div>'+
+    '</div>'+
+    '<div class="vol-desc" style="margin-top:14px">Bu deneysel özel analiz sistemidir. Yatırım tavsiyesi değildir.</div>'+
+  '</div>';
+}
+
+async function runOzel(){
+  var t=document.getElementById('tiOzel').value.trim().toUpperCase();
+  if(!t) return;
+  var box=document.getElementById('resultOzel');
+  box.style.display='block';
+  box.innerHTML='<p class="loading">⏳ Özel analiz yükleniyor...</p>';
+  try{
+    var res=await fetch('/analyze-ozel/'+t);
+    var d=await res.json();
+    if(d.error){ box.innerHTML='<p class="error">❌ '+d.error+'</p>'; return; }
+    box.innerHTML=ozelCard(d);
+    window.scrollTo({top:0,behavior:'smooth'});
+  }catch(e){ box.innerHTML='<p class="error">❌ Hata: '+e.message+'</p>'; }
+}
+
+async function runScanOzel(){
+  var btn=document.getElementById('scanBtnOzel');
+  var box=document.getElementById('scanResult');
+  btn.disabled=true; btn.textContent='⏳ Taranıyor...';
+  box.style.display='block';
+  box.innerHTML='<div style="background:#1a1a1a;border-radius:12px;padding:30px;text-align:center;color:#aaa">⏳ Özel tarama çalışıyor (1-2 dk)...</div>';
+  try{
+    var res=await fetch('/scan-ozel');
+    var d=await res.json();
+    if(!d.results){ box.innerHTML='<div class="error">Tarama başarısız.</div>'; btn.disabled=false; btn.textContent='🧪 BIST100 Tara Özel'; return; }
+    var groups={'GÜÇLÜ AL':[],'AL':[],'NÖTR':[],'SAT':[],'GÜÇLÜ SAT':[]};
+    d.results.forEach(function(r){ if(groups[r.verdict]) groups[r.verdict].push(r); });
+    var html='<div style="background:#1a1a1a;border-radius:16px;padding:20px"><div style="color:#9c27b0;font-size:1.1rem;font-weight:bold;margin-bottom:16px">🧪 Özel Tarama Sonuçları ('+d.count+' hisse)</div>';
+    ['GÜÇLÜ AL','AL','NÖTR','SAT','GÜÇLÜ SAT'].forEach(function(g){
+      var arr=groups[g]; if(arr.length===0) return;
+      var c=ozelVerdictColor(g), e=ozelVerdictEmoji(g);
+      html+='<div style="margin-bottom:18px"><div style="color:'+c+';font-size:.85rem;font-weight:bold;margin-bottom:8px;border-bottom:1px solid #2a2a2a;padding-bottom:6px">'+e+' '+g+' ('+arr.length+')</div><div style="display:flex;flex-wrap:wrap;gap:8px">';
+      arr.forEach(function(r){
+        html+='<div onclick="document.getElementById(\'tiOzel\').value=\''+r.ticker+'\';runOzel()" style="cursor:pointer;background:#0f0f0f;border:1px solid #2a2a2a;border-left:3px solid '+c+';border-radius:8px;padding:8px 12px;min-width:130px" onmouseover="this.style.background=\'#252525\'" onmouseout="this.style.background=\'#0f0f0f\'"><div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.9rem">'+r.ticker+'</span><span style="color:'+c+';font-weight:bold;font-size:.85rem">%'+r.pct+'</span></div><div style="color:#888;font-size:.75rem;margin-top:2px">₺'+r.price+'</div></div>';
+      });
+      html+='</div></div>';
+    });
+    html+='<div class="vol-desc" style="margin-top:8px">Deneysel özel tarama. Yatırım tavsiyesi değildir.</div></div>';
+    box.innerHTML=html;
+  }catch(e){ box.innerHTML='<div class="error">❌ Hata: '+e.message+'</div>'; }
+  btn.disabled=false; btn.textContent='🧪 BIST100 Tara Özel';
 }
 </script>
 </body>
