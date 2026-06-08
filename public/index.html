@@ -488,8 +488,8 @@ async function run(keepTicker){
       else addVote('50 Bar Hacim Konumu', 0, '%'+pp);
       // OBV ana sinyal
       var os=d.volume.obvSignal;
-      var ov=(os==='confirm_up'||os==='bull_div')?1:-1;
-      addVote('OBV Sinyal', ov, {confirm_up:'Birikim',confirm_down:'Dağıtım',bull_div:'Gizli alım',bear_div:'Gizli satım'}[os]);
+      var ovMap={confirm_up:0.5, confirm_down:-0.5, bull_div:1, bear_div:-1};
+      addVote('OBV Sinyal', ovMap[os], {confirm_up:'Birikim',confirm_down:'Dağıtım',bull_div:'Gizli alım',bear_div:'Gizli satım'}[os]);
       // OBV uyumsuzluk
       var od=d.volume.obvDivergence;
       if(od==='bullish') addVote('OBV Uyumsuzluk', 1, 'Pozitif');
