@@ -690,6 +690,54 @@ async function quickScore(ticker, headers) {
       if (mfi < 20 && mfiDivVal === 'bullish') vote(1, false);
       else if (mfi > 80 && mfiDivVal === 'bearish') vote(-1, false);
     }
+    // ===== 5 TEKNİK STRATEJİ + VPA (sadece pozitif/anlamlı sinyaller) =====
+    const strat = {};
+    const ema50s = closes.length >= 50 ? ema(closes, 50) : null;
+    const ema200s = closes.length >= 200 ? ema(closes, 200) : null;
+
+    // 1) MOMENTUM: 63 günlük getiri >= +%10
+    if (closes.length > 63) {
+      const ago = closes[closes.length - 64];
+      const ret = ((price - ago) / ago) * 100;
+      if (ret >= 10) strat.momentum = 'Son 3 ayda %' + ret.toFixed(1) + ' yükseldi — güçlü momentum.';
+    }
+
+    // 2) TREND TAKİBİ: Fiyat > EMA50 > EMA200
+    if (ema50s !== null && ema200s !== null && price > ema50s && ema50s > ema200s) {
+      strat.trend = 'Fiyat > EMA50 > EMA200 — net yukarı dizilim, trend sağlam.';
+    }
+
+    // 3) 52 HAFTA ZİRVESİ: fiyat 252 günlük zirvenin %5 yakınında
+    {
+      const win = Math.min(closes.length, 252);
+      const hi = Math.max(...closes.slice(-win));
+      const distPct = ((hi - price) / hi) * 100;
+      if (distPct <= 5) strat.high52 = 'Fiyat 52 hafta zirvesinin %' + distPct.toFixed(1) + ' yakınında — güç işareti.';
+    }
+
+    // 4) GÖRECELİ GÜÇ (RSI 55-70)
+    if (rsi !== undefined && rsi >= 55 && rsi <= 70) {
+      strat.relStrength = 'RSI ' + rsi.toFixed(0) + ' — güçlü bölgede, henüz aşırı alım değil.';
+    }
+
+    // 5) ORTALAMAYA DÖNÜŞ: RSI < 35 ve fiyat > EMA200
+    if (rsi !== undefined && rsi < 35 && ema200s !== null && price > ema200s) {
+      strat.meanRev = 'RSI ' + rsi.toFixed(0) + ' (aşırı satım) ama fiyat EMA200 üstünde — uzun trend sağlam, geri çekilme fırsatı olabilir.';
+    }
+
+    // 6) HACİM-FİYAT (VPA - Anna Coulling): sadece anlamlı sinyaller
+    {
+      const prevC2 = closes[closes.length - 2];
+      const dayChg = ((price - prevC2) / prevC2) * 100;
+      const volR = curVol / avgVol20; // bugünkü hacmin 20 ort'ye oranı
+      if (dayChg >= 2 && volR >= 1.5) {
+        strat.vpa = 'Fiyat %' + dayChg.toFixed(1) + ' arttı + hacim ortalamanın ' + volR.toFixed(1) + ' katı — doğrulanmış güçlü alım.';
+      } else if (dayChg >= 2 && volR < 0.8) {
+        strat.vpa = 'Fiyat %' + dayChg.toFixed(1) + ' arttı AMA hacim düşük (' + volR.toFixed(1) + 'x) — anomali, yükselişe güven zayıf.';
+      } else if (dayChg <= -3 && volR >= 2) {
+        strat.vpa = 'Fiyat %' + dayChg.toFixed(1) + ' düştü + çok yüksek hacim (' + volR.toFixed(1) + 'x) — olası satış doruğu (climax), dipten dönüş izlenebilir.';
+      }
+    }
     const norm = maxW > 0 ? total / maxW : 0;
     const pct = Math.round(((norm + 1) / 2) * 100);
     let verdict;
@@ -698,7 +746,7 @@ async function quickScore(ticker, headers) {
     else if (norm > -0.2) verdict = 'NÖTR';
     else if (norm > -0.5) verdict = 'SAT';
     else verdict = 'GÜÇLÜ SAT';
-    return { ticker, price: parseFloat(price.toFixed(2)), norm: parseFloat(norm.toFixed(3)), pct, verdict };
+    return { ticker, price: parseFloat(price.toFixed(2)), norm: parseFloat(norm.toFixed(3)), pct, verdict, strategies: strat };
   } catch (e) { return null; }
 }
 
