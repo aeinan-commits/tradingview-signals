@@ -434,10 +434,10 @@ async function run(keepTicker){
 
    // --- EMA (20,50,200) + kırılım bonusu ---
     if(d.mas){
-      var emaPts={20:0.5, 50:0.5, 200:1};
+      var emaPts={20:0.25, 50:0.5, 200:1};
       [20,50,200].forEach(function(p){
         var m=d.mas.find(function(x){return x.period===p;});
-        if(m){ var base=emaPts[p]; addVote('EMA'+p, m.above?base:-base, m.above?'Fiyat üstünde':'Fiyat altında', true); }
+        if(m && m.above){ addVote('EMA'+p, emaPts[p], 'Fiyat üstünde', true); }
       });
       // Yeni kırılım bonusu (server'dan justCrossed bilgisi gelirse)
       if(d.maCross){
@@ -571,11 +571,6 @@ async function run(keepTicker){
       var confPts=confSum>0?0.5:confSum<0?-0.5:0;
       var confTxt=(d.ichimoku.tkCross==='bull'?'TK pozitif':d.ichimoku.tkCross==='bear'?'TK negatif':'TK nötr')+', '+(d.ichimoku.cloudColor==='green'?'bulut yeşil':'bulut kırmızı');
       addVote('Ichimoku Teyit', confPts, confTxt, true);
-    }
-
-    // --- ADX YÖN ---
-    if(d.adx){
-      addVote('ADX Yön (+DI/-DI)', d.adx.bullish?1:-1, d.adx.bullish?'+DI baskın':'-DI baskın');
     }
 
     // --- MUM FORMASYONLARI (her yönlü formasyon ayrı oy) ---
