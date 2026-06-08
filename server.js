@@ -602,8 +602,8 @@ async function quickScore(ticker, headers) {
     if (sr.resistances[0]) { var rd = Math.abs(sr.resistances[0].dist); if (rd >= 4) vote(1, false); }
 
     // EMA
-    const emaPts = { 20: 0.5, 50: 0.5, 200: 1 };
-    [20, 50, 200].forEach(function (p) { if (closes.length >= p) { var e = ema(closes, p); var base = emaPts[p]; vote(price > e ? base : -base, true, tMult); } });
+    const emaPts = { 20: 0.25, 50: 0.5, 200: 1 };
+    [20, 50, 200].forEach(function (p) { if (closes.length >= p) { var e = ema(closes, p); if (price > e) vote(emaPts[p], true, tMult); } });
 
     // Hacim
     const avgVol20 = vols.slice(-20).reduce((a, b) => a + b, 0) / Math.min(vols.length, 20);
@@ -674,8 +674,6 @@ async function quickScore(ticker, headers) {
       var cSum=tkV+rnV; vote(cSum>0?0.5:cSum<0?-0.5:0, true, tMult);
     }
 
-    // ADX yön
-    if (adx) vote(adx.bullish?1:-1, false);
 
     // Mum
     const cp = detectCandlePatterns(opens, highs, lows, closes);
