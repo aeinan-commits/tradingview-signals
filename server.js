@@ -777,7 +777,8 @@ async function quickScoreOzel(ticker, headers) {
 
     const price = closes[closes.length - 1];
     let total = 0, maxW = 0;
-    function vote(points) { total += points; maxW += Math.abs(points); }
+    const breakdown = [];
+    function vote(points, name, detail) { total += points; maxW += Math.abs(points); if (name) breakdown.push({ name, points, detail: detail || '' }); }
 
     const adx = calcADX(highs, lows, closes, 14);
     const trendStrong = adx && adx.adx >= 25;
@@ -806,7 +807,7 @@ async function quickScoreOzel(ticker, headers) {
         }
         if (held) { crossedAndHeld = true; break; }
       }
-      if (crossedAndHeld) vote(1, false);
+      if (crossedAndHeld) vote(1, 'EMA200 Kırılımı', 'Son 5 kapanmış barda EMA200 üstüne çıkıp üstünde kaldı.');
     })();
 
     // KURAL 2: Son 3 kapanmış barın en az 2'sinde fiyat arttı + son (mevcut) bar artıyor
@@ -830,31 +831,16 @@ async function quickScoreOzel(ticker, headers) {
       // Mevcut barın artışında da hacim artmalı
       const currentVolUp = vols[n - 1] > vols[n - 2];
       if (!currentVolUp) allUpHaveVolUp = false;
-      if (upCount >= 2 && allUpHaveVolUp) vote(1, false);
+      if (upCount >= 2 && allUpHaveVolUp) vote(1, 'Hacimli Yükseliş', 'Son 3 barın en az 2\'si + mevcut bar yükseliş, hepsinde hacim de arttı.');
     })();
 
     // Ekran kutuları için RSI hâlâ hesaplansın (puana katılmıyor)
     const rsiS = calcRSISeries(closes, 14); const rsiV = rsiS.filter(x => x !== null); const rsi = rsiV.length ? rsiV[rsiV.length - 1] : 0;
 
-    const norm = maxW > 0 ? total / maxW : 0;
-    const pct = Math.round(((norm + 1) / 2) * 100);
-
-    // Ekranda gösterilecek ana kutular için ham veriler
-    const avgVol20 = vols.slice(-20).reduce((a, b) => a + b, 0) / Math.min(vols.length, 20);
-    const curVol = vols[vols.length - 1];
-    const mas = [20, 50, 200].map(p => {
-      if (closes.length < p) return null;
-      const e = ema(closes, p);
-      return { period: p, value: parseFloat(e.toFixed(2)), above: price > e, diff: parseFloat((((price - e) / e) * 100).toFixed(2)) };
-    }).filter(x => x);
-
-    return {
+    creturn {
       ticker, price: parseFloat(price.toFixed(2)),
       total: parseFloat(total.toFixed(2)),
-      norm: parseFloat(norm.toFixed(3)), pct,
-      rsi: parseFloat(rsi.toFixed(1)),
-      volRatio: parseFloat((curVol / avgVol20).toFixed(2)),
-      mas
+      breakdown
     };
   } catch (e) { return null; }
 }
