@@ -765,14 +765,16 @@ app.get('/scan', async (req, res) => {
 // ============================================================
 // ===== ÖZEL ANALİZ SİSTEMİ (deneysel - ayrı puanlama) =====
 // ============================================================
-async function quickScoreOzel(ticker, headers) {
+async function quickScoreOzel(ticker, headers, tf) {
   try {
-    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.IS?interval=1d&range=2y&events=div%2Csplit`, { headers });
+    const cfg = TF_CONFIG[tf] || TF_CONFIG['1d'];
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.IS?interval=${cfg.interval}&range=${cfg.range}&events=div%2Csplit`, { headers });
     const data = await r.json();
     if (!data.chart || !data.chart.result || !data.chart.result[0]) return null;
     const q = data.chart.result[0].indicators.quote[0];
     let valid = q.close.map((p, i) => ({ p, v: q.volume[i], h: q.high[i], l: q.low[i], o: q.open[i] })).filter(x => x.p !== null && x.v !== null && x.h !== null && x.l !== null && x.o !== null);
     let closes = valid.map(x => x.p), vols = valid.map(x => x.v), highs = valid.map(x => x.h), lows = valid.map(x => x.l), opens = valid.map(x => x.o);
+    if (cfg.resample) { const rs = resampleTo4h(opens, closes, vols, highs, lows); opens = rs.opens; closes = rs.closes; vols = rs.vols; highs = rs.highs; lows = rs.lows; }
     if (closes.length < 60) return null;
 
     const price = closes[closes.length - 1];
@@ -847,20 +849,22 @@ async function quickScoreOzel(ticker, headers) {
 
 app.get('/analyze-ozel/:ticker', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
-  const result = await quickScoreOzel(req.params.ticker.toUpperCase(), headers);
+  const tf = req.query.tf || '1d';
+  const result = await quickScoreOzel(req.params.ticker.toUpperCase(), headers, tf);
   if (!result) return res.status(500).json({ error: 'Hisse bulunamadı veya yeterli veri yok' });
   res.json(result);
 });
 
 app.get('/scan-ozel', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
+  const tf = req.query.tf || '1d';
   const results = [];
   for (let i = 0; i < BIST100.length; i += 5) {
     const chunk = BIST100.slice(i, i + 5);
-    const part = await Promise.all(chunk.map(t => quickScoreOzel(t, headers)));
+    const part = await Promise.all(chunk.map(t => quickScoreOzel(t, headers, tf)));
     part.forEach(p => { if (p) results.push(p); });
   }
-  results.sort((a, b) => b.norm - a.norm);
+  results.sort((a, b) => b.total - a.total);
   res.json({ count: results.length, results });
 });
 const PORT = process.env.PORT || 3000;
