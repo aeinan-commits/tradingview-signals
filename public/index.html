@@ -231,6 +231,32 @@ async function runScan(){
       });
       html+='</div></div>';
     });
+    // ===== STRATEJİLERE UYAN HİSSELER (sadece sinyal verenler) =====
+    var stratDefs=[
+      {key:'momentum', title:'🚀 Momentum', sub:'Son 3 ayda güçlü yükseliş'},
+      {key:'trend', title:'📈 Trend Takibi', sub:'Fiyat > EMA50 > EMA200'},
+      {key:'high52', title:'🏔️ 52 Hafta Zirvesi', sub:'Zirveye %5 yakın'},
+      {key:'relStrength', title:'💪 Göreceli Güç', sub:'RSI 55-70, güçlü bölge'},
+      {key:'meanRev', title:'🔄 Ortalamaya Dönüş', sub:'Aşırı satım + uzun trend sağlam'},
+      {key:'vpa', title:'📊 Hacim-Fiyat (VPA)', sub:'Anna Coulling — hacim/fiyat uyumu'}
+    ];
+    var anyStrat=stratDefs.some(function(s){ return d.results.some(function(r){ return r.strategies && r.strategies[s.key]; }); });
+    if(anyStrat){
+      html+='<div style="margin-top:24px;padding-top:16px;border-top:2px solid #2a2a2a"><div style="color:#9c27b0;font-size:1.05rem;font-weight:bold;margin-bottom:4px">🎯 Stratejilere Uyan Hisseler</div><div class="vol-desc" style="margin-bottom:14px">Her strateji kendi kuralına uyan hisseleri listeler. Nötr/sinyal vermeyen hisseler gösterilmez.</div>';
+      stratDefs.forEach(function(s){
+        var matches=d.results.filter(function(r){ return r.strategies && r.strategies[s.key]; });
+        if(matches.length===0) return;
+        html+='<div style="margin-bottom:18px"><div style="color:#ce93d8;font-size:.9rem;font-weight:bold;margin-bottom:2px">'+s.title+' <span style="color:#666;font-weight:normal">('+matches.length+')</span></div><div style="color:#666;font-size:.72rem;margin-bottom:8px">'+s.sub+'</div>';
+        matches.forEach(function(r){
+          html+='<div onclick="openScan(\''+r.ticker+'\')" style="cursor:pointer;background:#0f0f0f;border:1px solid #2a2a2a;border-left:3px solid #9c27b0;border-radius:8px;padding:10px 12px;margin-bottom:6px" onmouseover="this.style.background=\'#252525\'" onmouseout="this.style.background=\'#0f0f0f\'">'+
+            '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.9rem">'+r.ticker+'</span><span style="color:#888;font-size:.78rem">₺'+r.price+'</span></div>'+
+            '<div style="color:#aaa;font-size:.78rem;margin-top:4px;line-height:1.4">'+r.strategies[s.key]+'</div>'+
+          '</div>';
+        });
+        html+='</div>';
+      });
+      html+='</div>';
+    }
     html+='<div class="vol-desc" style="margin-top:8px">Hızlı skor (çoklu zaman dilimi hariç) ile hesaplanmıştır. Bir hisseye tıklayarak tam analizini açabilirsiniz. Yatırım tavsiyesi değildir.</div></div>';
     box.innerHTML=html;
   }catch(e){ box.innerHTML='<div class="error">❌ Tarama hatası: '+e.message+'</div>'; }
