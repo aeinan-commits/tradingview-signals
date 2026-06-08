@@ -884,7 +884,16 @@ async function quickScoreOzel(ticker, headers, tf) {
       }
       if (flipped) vote(1, 'Parabolik SAR', 'Son 3 kapanmış barda SAR fiyatın altına geçip altında kaldı (yükseliş).');
     })();
+    // Ekran kutuları için RSI hâlâ hesaplansın (puana katılmıyor)
+    const rsiS = calcRSISeries(closes, 14); const rsiV = rsiS.filter(x => x !== null); const rsi = rsiV.length ? rsiV[rsiV.length - 1] : 0;
 
+    return {
+      ticker, price: parseFloat(price.toFixed(2)),
+      total: parseFloat(total.toFixed(2)),
+      breakdown
+    };
+  } catch (e) { return null; }
+}
 app.get('/analyze-ozel/:ticker', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
   const tf = req.query.tf || '1d';
