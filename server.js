@@ -625,7 +625,12 @@ async function quickScore(ticker, headers) {
     for (let i = 1; i < closes.length; i++) { if (closes[i] > closes[i-1]) obv += vols[i]; else if (closes[i] < closes[i-1]) obv -= vols[i]; obvS.push(obv); }
     const obvUp = obvS[obvS.length-1] > (obvS[obvS.length-21] || obvS[0]);
     const prUp = price > (closes[closes.length-21] || closes[0]);
-    vote((obvUp && prUp) || (obvUp && !prUp) ? 1 : -1, false);
+    var obvSig;
+    if (obvUp && prUp) obvSig='confirm_up';
+    else if (!obvUp && !prUp) obvSig='confirm_down';
+    else if (obvUp && !prUp) obvSig='bull_div';
+    else obvSig='bear_div';
+    vote({confirm_up:0.5, confirm_down:-0.5, bull_div:1, bear_div:-1}[obvSig], false);
     const obvDiv = detectDivergence(closes, obvS, 40);
     if (obvDiv === 'bullish') vote(1, false); else if (obvDiv === 'bearish') vote(-1, false);
 
