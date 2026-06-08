@@ -1039,23 +1039,28 @@ function ozelVerdictColor(v){ return {'GÜÇLÜ AL':'#00c853','AL':'#66bb6a','N�
 function ozelVerdictEmoji(v){ return {'GÜÇLÜ AL':'🟢🟢','AL':'🟢','NÖTR':'🟡','SAT':'🔴','GÜÇLÜ SAT':'🔴🔴'}[v]||''; }
 
 function ozelCard(d){
-  var maBoxes=d.mas.map(function(m){
-    var cls=m.above?'up':'down', sign=m.diff>=0?'+':'';
-    return '<div class="ma-box '+cls+'"><div class="ma-name">EMA'+m.period+'</div><div class="ma-value">₺'+m.value+'</div><div class="ma-diff '+cls+'">'+sign+m.diff+'%</div><div class="ma-status">'+(m.above?'Fiyat üstünde':'Fiyat altında')+'</div></div>';
-  }).join('');
+  var rows;
+  if(!d.breakdown || d.breakdown.length===0){
+    rows='<div class="vol-desc" style="padding:10px">Hiçbir kalemden puan oluşmadı.</div>';
+  } else {
+    rows=d.breakdown.map(function(b){
+      var c=b.points>0?'#00c853':b.points<0?'#ff4444':'#888';
+      var sign=b.points>0?'+':'';
+      return '<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #222">'+
+        '<span style="color:'+c+';font-weight:bold;font-size:1rem;min-width:42px">'+sign+b.points+'</span>'+
+        '<div style="flex:1"><div style="color:#ccc;font-size:.9rem;font-weight:bold">'+b.name+'</div><div style="color:#888;font-size:.8rem;margin-top:2px;line-height:1.4">'+b.detail+'</div></div>'+
+      '</div>';
+    }).join('');
+  }
   return '<div style="background:#1a1a1a;border-radius:16px;padding:22px;border:2px solid #a5d6a7">'+
-    '<div style="text-align:center;margin-bottom:16px"><div style="color:#a5d6a7;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🧪 Özel Analiz — '+d.ticker+'</div>'+
-    '<div style="font-size:2.6rem;font-weight:bold;color:#a5d6a7">'+d.total+' puan</div>'+
-    '<div style="color:#aaa;margin-top:6px">₺'+d.price+'</div></div>'+
-    '<div class="grid">'+maBoxes+'</div>'+
-    '<div class="grid" style="margin-top:12px">'+
-      '<div class="vol-box"><div class="vol-label">RSI (14)</div><div class="vol-main">'+d.rsi+'</div></div>'+
-      '<div class="vol-box"><div class="vol-label">Hacim Oranı</div><div class="vol-main">'+d.volRatio+'x</div></div>'+
-    '</div>'+
+    '<div style="text-align:center;margin-bottom:18px"><div style="color:#a5d6a7;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🧪 Özel Analiz — '+d.ticker+'</div>'+
+    '<div style="color:#aaa;font-size:1.1rem;margin-bottom:4px">₺'+d.price+'</div>'+
+    '<div style="font-size:2.6rem;font-weight:bold;color:#a5d6a7">'+d.total+' puan</div></div>'+
+    '<div style="color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Puan Dökümü</div>'+
+    rows+
     '<div class="vol-desc" style="margin-top:14px">Bu deneysel özel analiz sistemidir. Yatırım tavsiyesi değildir.</div>'+
   '</div>';
 }
-
 async function runOzel(){
   var t=document.getElementById('tiOzel').value.trim().toUpperCase();
   if(!t) return;
