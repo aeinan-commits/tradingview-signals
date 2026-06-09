@@ -1155,6 +1155,22 @@ async function quickScoreOzel(ticker, headers, tf) {
         vote(1, 'Direnç Kırılımı', 'Son kapanmış bar 20 barlık zirveyi %' + pct.toFixed(1) + ' aştı + hacim ortalamanın ' + (vols[i] / avgVol).toFixed(1) + ' katı.');
       }
     })();
+    // KURAL 12: OBV zirve kırılımı — OBV son 30 barın en yüksek seviyesini aştıysa +1
+    (function () {
+      if (n < 35) return;
+      const obv = new Array(n).fill(0);
+      for (let k = 1; k < n; k++) {
+        if (closes[k] > closes[k - 1]) obv[k] = obv[k - 1] + vols[k];
+        else if (closes[k] < closes[k - 1]) obv[k] = obv[k - 1] - vols[k];
+        else obv[k] = obv[k - 1];
+      }
+      const i = n - 2; // son kapanmış bar
+      let obvPeak = -Infinity;
+      for (let j = i - 30; j <= i - 1; j++) { if (j >= 0 && obv[j] > obvPeak) obvPeak = obv[j]; }
+      if (obv[i] > obvPeak) {
+        vote(1, 'OBV Zirve Kırılımı', 'OBV son 30 barın en yüksek seviyesini aştı — birikim yeni zirvede, fiyat takip edebilir.');
+      }
+    })();
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
