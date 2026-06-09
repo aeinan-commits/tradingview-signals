@@ -1296,6 +1296,38 @@ async function quickScoreOzel(ticker, headers, tf) {
         vote(1, 'Pullback Sekmesi', 'Yükselen trendde fiyat EMA50\'ye geri çekilip yukarı sekti (EMA50\'nin %' + distNow.toFixed(1) + ' üstünde) — trend içi giriş fırsatı.');
       }
     })();
+    // KURAL 18: Çoklu Pozitif Divergence — RSI, MACD, OBV, CCI'dan kaç tanesi
+    //   bullish divergence gösteriyor? En az 2 → +1, sonraki her biri +0.5
+    (function () {
+      const divs = [];
+
+      // RSI divergence
+      const rsiArr = calcRSISeries(closes, 14);
+      if (detectDivergence(closes, rsiArr, 40) === 'bullish') divs.push('RSI');
+
+      // MACD divergence (macd çizgisi üzerinden)
+      const macdData = calcMACD(closes, 12, 26, 9);
+      if (macdData && detectDivergence(closes, macdData.macdLine, 40) === 'bullish') divs.push('MACD');
+
+      // OBV divergence
+      const obv = new Array(n).fill(0);
+      for (let k = 1; k < n; k++) {
+        if (closes[k] > closes[k - 1]) obv[k] = obv[k - 1] + vols[k];
+        else if (closes[k] < closes[k - 1]) obv[k] = obv[k - 1] - vols[k];
+        else obv[k] = obv[k - 1];
+      }
+      if (detectDivergence(closes, obv, 40) === 'bullish') divs.push('OBV');
+
+      // CCI divergence
+      const cciArr = calcCCISeries(highs, lows, closes, 20);
+      if (detectDivergence(closes, cciArr, 40) === 'bullish') divs.push('CCI');
+
+      // En az 2 divergence: +1, sonraki her biri +0.5
+      if (divs.length >= 2) {
+        const pts = 1 + (divs.length - 2) * 0.5;
+        vote(pts, 'Çoklu Pozitif Divergence', divs.length + ' gösterge (' + divs.join(', ') + ') aynı anda pozitif uyumsuzluk gösteriyor — güçlü dönüş sinyali.');
+      }
+    })();
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
