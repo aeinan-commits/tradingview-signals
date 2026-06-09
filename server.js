@@ -1210,6 +1210,26 @@ async function quickScoreOzel(ticker, headers, tf) {
         vote(0.5, 'Golden Cross + Fiyat Teyidi', 'Fiyat EMA50\'nin de üstünde — kesişim fiyatla destekleniyor.');
       }
     })();
+    // KURAL 15: Higher Lows — son 30 kapanmış bar, 10'ar barlık 3 pencerenin dipleri
+    //           giderek yükseliyorsa (yeni > orta > eski) +1
+    (function () {
+      if (n < 33) return; // 30 bar + mevcut bar + güvenlik
+      const end = n - 2; // son kapanmış bar dahil
+      // Üç pencere: [end-29..end-20], [end-19..end-10], [end-9..end]
+      function lowOf(from, to) {
+        let lo = Infinity;
+        for (let j = from; j <= to; j++) { if (j >= 0 && closes[j] < lo) lo = closes[j]; }
+        return lo;
+      }
+      const oldLow = lowOf(end - 29, end - 20);
+      const midLow = lowOf(end - 19, end - 10);
+      const newLow = lowOf(end - 9, end);
+      if (oldLow === Infinity || midLow === Infinity || newLow === Infinity) return;
+      if (newLow > midLow && midLow > oldLow) {
+        const rise = ((newLow - oldLow) / oldLow) * 100;
+        vote(1, 'Yükselen Dipler', 'Son 30 barda dipler giderek yükseliyor (%' + rise.toFixed(1) + ' artış) — yukarı yönlü yapı kuruluyor.');
+      }
+    })();
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
