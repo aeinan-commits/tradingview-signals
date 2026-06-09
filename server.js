@@ -808,34 +808,24 @@ async function quickScoreOzel(ticker, headers, tf) {
     let valid = q.close.map((p, i) => ({ p, v: q.volume[i], h: q.high[i], l: q.low[i], o: q.open[i] })).filter(x => x.p !== null && x.v !== null && x.h !== null && x.l !== null && x.o !== null);
     let closes = valid.map(x => x.p), vols = valid.map(x => x.v), highs = valid.map(x => x.h), lows = valid.map(x => x.l), opens = valid.map(x => x.o);
     if (cfg.resample) { const rs = resampleTo4h(opens, closes, vols, highs, lows); opens = rs.opens; closes = rs.closes; vols = rs.vols; highs = rs.highs; lows = rs.lows; }
-    console.log('OZEL DEBUG', ticker, 'tf=', tf, 'closes=', closes.length);
-    if (closes.length < 60) { console.log('OZEL: yetersiz veri', closes.length); return null; }
+    if (closes.length < 60) return null;
+
     const price = closes[closes.length - 1];
     let total = 0, maxW = 0;
     const breakdown = [];
     function vote(points, name, detail) { total += points; maxW += Math.abs(points); if (name) breakdown.push({ name, points, detail: detail || '' }); }
 
-    const adx = calcADX(highs, lows, closes, 14);
-    const trendStrong = adx && adx.adx >= 25;
-    const tMult = trendStrong ? 1.15 : 1;
-
-    // === ÖZEL KURALLAR ===
-    // Not: "içinde bulunulan bar" = son bar (closes son eleman, henüz kapanmamış kabul ediyoruz).
-    // "Kapanmış barlar" = son bar hariç öncekiler.
     const n = closes.length;
-    const ema200series = emaSeries(closes, 200); // hizalı EMA200 serisi
+    const ema200series = emaSeries(closes, 200);
 
-    // KURAL 1: Son 5 KAPANMIŞ bardan birinde EMA200 üstüne çıkıp üstünde kaldıysa +1
-    // (içinde bulunulan son bar hariç → indeksler n-2 ... n-6)
+    // KURAL 1: EMA200 kırılımı (son 5 kapanmış bar)
     (function () {
       if (n < 7 || ema200series[n - 2] === null) return;
-      // Son 5 kapanmış bar: n-6 .. n-2
       let crossedAndHeld = false;
       for (let i = n - 6; i <= n - 2; i++) {
         if (i < 1 || ema200series[i] === null || ema200series[i - 1] === null) continue;
         const justCrossed = closes[i - 1] <= ema200series[i - 1] && closes[i] > ema200series[i];
         if (!justCrossed) continue;
-        // Kırılımdan sonra (i'den n-2'ye kadar) hep üstünde kalmış mı?
         let held = true;
         for (let j = i; j <= n - 2; j++) {
           if (ema200series[j] === null || closes[j] <= ema200series[j]) { held = false; break; }
@@ -845,8 +835,7 @@ async function quickScoreOzel(ticker, headers, tf) {
       if (crossedAndHeld) vote(1, 'EMA200 Kırılımı', 'Son 5 kapanmış barda EMA200 üstüne çıkıp üstünde kaldı.');
     })();
 
-// KURAL 2: Son 3 kapanmış barın en az 2'sinde fiyat arttı + son (mevcut) bar artıyor
-    //          + bu süreçteki her fiyat artışında hacim de arttıysa +1
+    // KURAL 2: Hacimli yükseliş (son 3 + mevcut bar)
     (function () {
       if (n < 5) return;
       const currentUp = closes[n - 1] > closes[n - 2];
@@ -866,8 +855,7 @@ async function quickScoreOzel(ticker, headers, tf) {
       if (upCount >= 2 && allUpHaveVolUp) vote(1, 'Hacimli Yükseliş', 'Son 3 barın en az 2\'si + mevcut bar yükseliş, hepsinde hacim de arttı.');
     })();
 
-    // KURAL 3: Parabolic SAR — son 3 kapanmış bardan birinde SAR fiyatın altına geçip
-    //          orada kaldıysa (içinde bulunulan bar hariç) +1
+    // KURAL 3: Parabolic SAR (son 3 kapanmış bar)
     (function () {
       if (n < 6) return;
       const sar = calcPSAR(highs, lows, 0.02, 0.2);
@@ -884,15 +872,17 @@ async function quickScoreOzel(ticker, headers, tf) {
       }
       if (flipped) vote(1, 'Parabolik SAR', 'Son 3 kapanmış barda SAR fiyatın altına geçip altında kaldı (yükseliş).');
     })();
-    // Ekran kutuları için RSI hâlâ hesaplansın (puana katılmıyor)
-    const rsiS = calcRSISeries(closes, 14); const rsiV = rsiS.filter(x => x !== null); const rsi = rsiV.length ? rsiV[rsiV.length - 1] : 0;
-    console.log('OZEL DEBUG2: returna ulasti, total=', total, 'breakdown=', breakdown.length);
+
     return {
-      ticker, price: parseFloat(price.toFixed(2)),
+      ticker,
+      price: parseFloat(price.toFixed(2)),
       total: parseFloat(total.toFixed(2)),
       breakdown
     };
-  } catch (e) { return null; }
+  } catch (e) {
+    console.log('OZEL HATA:', e.message);
+    return null;
+  }
 }
 app.get('/analyze-ozel/:ticker', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
