@@ -1088,6 +1088,7 @@ async function runScanOzel(){
     var res=await fetch('/scan-ozel?tf='+selectedTF);
     var d=await res.json();
     if(!d.results){ box.innerHTML='<div class="error">Tarama başarısız.</div>'; btn.disabled=false; btn.textContent='🧪 BIST100 Tara Özel'; return; }
+    saveOzelScanHistory(d.results);
     var html='<div style="background:#1a1a1a;border-radius:16px;padding:20px"><div style="color:#a5d6a7;font-size:1.1rem;font-weight:bold;margin-bottom:16px">🧪 Özel Tarama Sonuçları ('+d.count+' hisse) — puana göre sıralı</div><div style="display:flex;flex-wrap:wrap;gap:8px">';
     d.results.forEach(function(r){
       var c = r.total>0 ? '#00c853' : '#888';
