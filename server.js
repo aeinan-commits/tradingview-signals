@@ -872,7 +872,17 @@ async function quickScoreOzel(ticker, headers, tf) {
       }
       if (flipped) vote(1, 'Parabolik SAR', 'Son 3 kapanmış barda SAR fiyatın altına geçip altında kaldı (yükseliş).');
     })();
-
+    
+// KURAL 4: Fiyat son 1 yılın en düşüğünün %20 üst sınırı içindeyse (dibe yakın) +1
+    (function () {
+      const win = Math.min(n, 252);
+      const yearLow = Math.min(...closes.slice(n - win));
+      const limit = yearLow * 1.20; // en düşüğün %20 üstü
+      if (closes[n - 1] <= limit) {
+        const distPct = ((closes[n - 1] - yearLow) / yearLow) * 100;
+        vote(1, 'Dip Bölgesi', 'Fiyat son 1 yılın en düşüğünün %' + distPct.toFixed(1) + ' üstünde (≤%20 sınırı içinde).');
+      }
+    })();
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
