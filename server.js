@@ -1057,9 +1057,9 @@ async function quickScoreOzel(ticker, headers, tf) {
       const pA = PDI[n - 2], pB = PDI[n - 3], pC = PDI[n - 4];
       const mA = MDI[n - 2], mB = MDI[n - 3], mC = MDI[n - 4];
 
-      // 1) ADX son kapanmış barda > 30 → +0.5 (bağımsız)
-      if (adxN2 !== null && adxN2 > 30) {
-        vote(0.5, 'ADX > 30', 'Son kapanmış barda ADX 30 üstü — güçlü trend.');
+      // 1) ADX son kapanmış barda > 30 VE +DI baskın (yukarı trend) → +0.5
+      if (adxN2 !== null && adxN2 > 30 && pA !== null && mA !== null && pA > mA) {
+        vote(0.5, 'ADX > 30 (Yukarı Trend)', 'Son kapanmış barda ADX 30 üstü ve +DI baskın — güçlü yukarı trend.');
       }
 
       // +DI son 2 kapanmış barda yükseliyor mu?
