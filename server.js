@@ -799,10 +799,6 @@ function calcPSAR(highs, lows, step, maxStep) {
 // ===== ÖZEL ANALİZ SİSTEMİ (deneysel - ayrı puanlama) =====
 // ============================================================
 async function quickScoreOzel(ticker, headers, tf) {
-// ============================================================
-// ===== ÖZEL ANALİZ SİSTEMİ (deneysel - ayrı puanlama) =====
-// ============================================================
-async function quickScoreOzel(ticker, headers, tf) {
   try {
     const cfg = TF_CONFIG[tf] || TF_CONFIG['1d'];
     const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.IS?interval=${cfg.interval}&range=${cfg.range}&events=div%2Csplit`, { headers });
