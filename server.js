@@ -128,6 +128,33 @@ function calcBollinger(closes, period, mult) {
     squeeze, pos
   };
 }
+// Bollinger serisi (her bar için upper/middle/lower + squeeze) - hizalı
+function calcBollingerSeries(closes, period, mult) {
+  const n = closes.length;
+  const upper = new Array(n).fill(null), middle = new Array(n).fill(null), lower = new Array(n).fill(null), bw = new Array(n).fill(null);
+  for (let i = period - 1; i < n; i++) {
+    const slice = closes.slice(i - period + 1, i + 1);
+    const sma = slice.reduce((a, b) => a + b, 0) / period;
+    const variance = slice.reduce((a, b) => a + Math.pow(b - sma, 2), 0) / period;
+    const sd = Math.sqrt(variance);
+    upper[i] = sma + mult * sd;
+    middle[i] = sma;
+    lower[i] = sma - mult * sd;
+    bw[i] = ((upper[i] - lower[i]) / sma) * 100; // bant genişliği %
+  }
+  // Squeeze: her bar için, o bara kadarki son 100 barın bandwidth'ine göre en dar %20'de mi?
+  const squeeze = new Array(n).fill(false);
+  for (let i = period - 1; i < n; i++) {
+    const start = Math.max(period - 1, i - 99);
+    const window = [];
+    for (let j = start; j <= i; j++) if (bw[j] !== null) window.push(bw[j]);
+    if (window.length < 5) continue;
+    const minBW = Math.min(...window), maxBW = Math.max(...window);
+    const pos = maxBW === minBW ? 50 : ((bw[i] - minBW) / (maxBW - minBW)) * 100;
+    squeeze[i] = pos < 20;
+  }
+  return { upper, middle, lower, bw, squeeze };
+}
 // Mum formasyonu tespiti — son barlara bakar, trend bağlamı ile
 function detectCandlePatterns(opens, highs, lows, closes) {
   const n = closes.length;
@@ -1087,6 +1114,29 @@ async function quickScoreOzel(ticker, headers, tf) {
         if (nowAbove || crossedAbove) {
           vote(0.5, '+DI, -DI %20 Üstü', '+DI yükselirken -DI\'nın en az %20 üstünde — alıcı baskınlığı güçlü.');
         }
+      }
+    })();
+    // KURAL 10: Bollinger (20,2) — son kapanmış bar (n-2)
+    //   A) Alt banttan içeri net dönüş (aşırı satımdan toparlanma) +1
+    //   B) Squeeze sonrası üst bant kırılımı (sıkışmadan patlama) +1
+    (function () {
+      const bb = calcBollingerSeries(closes, 20, 2);
+      const i = n - 2;       // son kapanmış bar
+      const p = n - 3;       // bir önceki kapanmış bar
+      if (bb.lower[i] === null || bb.lower[p] === null || bb.upper[i] === null || bb.upper[p] === null) return;
+
+      // A) Önceki bar alt bandın ALTINDA, son bar alt bandın ÜSTÜNDE
+      const cameBackFromLower = closes[p] < bb.lower[p] && closes[i] > bb.lower[i];
+      if (cameBackFromLower) {
+        vote(1, 'Bollinger Alt Bant Dönüşü', 'Fiyat alt bandı delip son kapanmış barda içeri döndü — aşırı satımdan toparlanma.');
+      }
+
+      // B) Squeeze (dar bant) durumundan üst bant kırılımı:
+      //    önceki bar üst bandın altında/squeeze, son bar üst bandın üstünde + squeeze yakınında
+      const wasSqueeze = bb.squeeze[p] || bb.squeeze[i] || bb.squeeze[n - 4];
+      const brokeUpper = closes[p] <= bb.upper[p] && closes[i] > bb.upper[i];
+      if (wasSqueeze && brokeUpper) {
+        vote(1, 'Bollinger Squeeze Kırılımı', 'Bantlar sıkışmışken fiyat son kapanmış barda üst bandı yukarı kırdı — sıkışmadan patlama.');
       }
     })();
     return {
