@@ -1225,9 +1225,9 @@ async function quickScoreOzel(ticker, headers, tf) {
       const midLow = lowOf(end - 19, end - 10);
       const newLow = lowOf(end - 9, end);
       if (oldLow === Infinity || midLow === Infinity || newLow === Infinity) return;
-      if (newLow > midLow && midLow > oldLow) {
+      if (newLow > midLow * 1.03 && midLow > oldLow * 1.03) {
         const rise = ((newLow - oldLow) / oldLow) * 100;
-        vote(1, 'Yükselen Dipler', 'Son 30 barda dipler giderek yükseliyor (%' + rise.toFixed(1) + ' artış) — yukarı yönlü yapı kuruluyor.');
+        vote(1, 'Yükselen Dipler', 'Son 30 barda dipler her dönem ≥%3 yükseliyor (toplam %' + rise.toFixed(1) + ') — net yukarı yapı.');
       }
     })();
     return {
