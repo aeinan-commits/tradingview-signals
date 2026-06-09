@@ -1230,6 +1230,42 @@ async function quickScoreOzel(ticker, headers, tf) {
         vote(1, 'Yükselen Dipler', 'Son 30 barda dipler her dönem ≥%3 yükseliyor (toplam %' + rise.toFixed(1) + ') — net yukarı yapı.');
       }
     })();
+    // KURAL 16: Dar aralık sıkışması + hacimli kırılım
+    //   Son 5 kapanmış bar dar bir aralıkta sıkışmış (ort. bar aralığının ×1.2 altı),
+    //   son kapanmış bar bu aralığın tepesini en az %1 + hacim teyidiyle yukarı kırmışsa +1
+    (function () {
+      const i = n - 2; // son kapanmış bar (kırılım barı)
+      if (i < 27) return;
+      // Sıkışma penceresi: kırılım barından önceki 5 bar (i-5 .. i-1)
+      const sqFrom = i - 5, sqTo = i - 1;
+      let sqHigh = -Infinity, sqLow = Infinity;
+      for (let j = sqFrom; j <= sqTo; j++) { if (closes[j] > sqHigh) sqHigh = closes[j]; if (closes[j] < sqLow) sqLow = closes[j]; }
+      const sqRange = ((sqHigh - sqLow) / sqLow) * 100; // sıkışma aralığı %
+
+      // Referans: sıkışmadan önceki 20 barın ortalama bar aralığı (high-low)
+      let sumRange = 0, cnt = 0;
+      for (let j = sqFrom - 20; j < sqFrom; j++) {
+        if (j < 0) continue;
+        sumRange += ((highs[j] - lows[j]) / lows[j]) * 100;
+        cnt++;
+      }
+      if (cnt < 10) return;
+      const avgBarRange = sumRange / cnt;
+      // Sıkışma "dar" mı: 5 barlık aralık, ortalama tek-bar aralığının ×1.2 altında
+      const isTight = sqRange < avgBarRange * 1.2;
+      if (!isTight) return;
+
+      // Kırılım: son kapanmış bar sıkışma tepesini en az %1 yukarı kırdı
+      const brkPct = ((closes[i] - sqHigh) / sqHigh) * 100;
+      if (brkPct < 1) return;
+
+      // Hacim teyidi: kırılım barında hacim, önceki 20 barın ortalamasının üstünde
+      const volSlice = vols.slice(i - 20, i);
+      const avgVol = volSlice.reduce((a, b) => a + b, 0) / volSlice.length;
+      if (vols[i] > avgVol) {
+        vote(1, 'Sıkışma Kırılımı', '5 bar dar aralıkta sıkışan fiyat, son kapanmış barda tepeyi %' + brkPct.toFixed(1) + ' + hacimle yukarı kırdı.');
+      }
+    })();
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
