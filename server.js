@@ -1184,6 +1184,32 @@ async function quickScoreOzel(ticker, headers, tf) {
         vote(1, 'Hacim Patlaması', 'Son kapanmış barda hacim ortalamanın ' + ratio.toFixed(1) + ' katı + fiyat arttı — anormal alıcı ilgisi.');
       }
     })();
+    // KURAL 14: Golden Cross — son 5 kapanmış barda EMA50, EMA200'ü yukarı kesti
+    //           ve sonrasında tekrar altına inmediyse +1; fiyat da EMA50 üstündeyse +0.5
+    (function () {
+      const e50 = emaSeries(closes, 50);
+      const e200 = emaSeries(closes, 200);
+      if (e50[n - 2] === null || e200[n - 2] === null) return;
+      // Son 5 kapanmış bar: n-6 .. n-2
+      let crossedAndHeld = false;
+      for (let i = n - 6; i <= n - 2; i++) {
+        if (i < 1 || e50[i] === null || e200[i] === null || e50[i - 1] === null || e200[i - 1] === null) continue;
+        const justCrossed = e50[i - 1] <= e200[i - 1] && e50[i] > e200[i];
+        if (!justCrossed) continue;
+        // Kesişimden son kapanmış bara kadar EMA50 hep EMA200 üstünde mi kaldı?
+        let held = true;
+        for (let j = i; j <= n - 2; j++) {
+          if (e50[j] === null || e200[j] === null || e50[j] <= e200[j]) { held = false; break; }
+        }
+        if (held) { crossedAndHeld = true; break; }
+      }
+      if (!crossedAndHeld) return;
+      vote(1, 'Golden Cross', 'Son 5 kapanmış barda EMA50, EMA200\'ü yukarı kesti ve üstünde kaldı — uzun vadeli yükseliş dönüşü.');
+      // Fiyat da son kapanmış barda EMA50 üstündeyse +0.5
+      if (closes[n - 2] > e50[n - 2]) {
+        vote(0.5, 'Golden Cross + Fiyat Teyidi', 'Fiyat EMA50\'nin de üstünde — kesişim fiyatla destekleniyor.');
+      }
+    })();
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
