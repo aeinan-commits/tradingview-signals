@@ -1139,6 +1139,24 @@ async function quickScoreOzel(ticker, headers, tf) {
         vote(1, 'Bollinger Squeeze Kırılımı', 'Bantlar sıkışmışken fiyat son kapanmış barda üst bandı yukarı kırdı — sıkışmadan patlama.');
       }
     })();
+    // KURAL 11: Direnç kırılımı — son kapanmış bar (n-2) önceki 20 barın zirvesini
+    //           hacim teyidiyle yukarı kırdıysa +1
+    (function () {
+      const i = n - 2; // son kapanmış bar
+      if (i < 23) return; // önceki 20 bar + hacim ortalaması için yeterli veri
+      // Önceki 20 barın (i-20 .. i-1) en yüksek kapanışı = aşılması gereken direnç
+      let resistance = -Infinity;
+      for (let j = i - 20; j <= i - 1; j++) { if (closes[j] > resistance) resistance = closes[j]; }
+      const brokeOut = closes[i] > resistance;
+      if (!brokeOut) return;
+      // Hacim teyidi: i barındaki hacim, son 20 barın ortalamasının üstünde mi
+      const volSlice = vols.slice(i - 19, i + 1); // i dahil son 20 bar
+      const avgVol = volSlice.reduce((a, b) => a + b, 0) / volSlice.length;
+      if (vols[i] > avgVol) {
+        const pct = ((closes[i] - resistance) / resistance) * 100;
+        vote(1, 'Direnç Kırılımı', 'Son kapanmış bar 20 barlık zirveyi %' + pct.toFixed(1) + ' yukarı kırdı + hacim ortalama üstü.');
+      }
+    })();
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
