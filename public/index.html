@@ -1041,6 +1041,7 @@ function ozelVerdictColor(v){ return {'GÜÇLÜ AL':'#00c853','AL':'#66bb6a','N�
 function ozelVerdictEmoji(v){ return {'GÜÇLÜ AL':'🟢🟢','AL':'🟢','NÖTR':'🟡','SAT':'🔴','GÜÇLÜ SAT':'🔴🔴'}[v]||''; }
 
 function ozelCard(d){
+  var lv = ozelLevel(d.total);
   var rows;
   if(!d.breakdown || d.breakdown.length===0){
     rows='<div class="vol-desc" style="padding:10px">Hiçbir kalemden puan oluşmadı.</div>';
@@ -1054,10 +1055,11 @@ function ozelCard(d){
       '</div>';
     }).join('');
   }
-  return '<div style="background:#1a1a1a;border-radius:16px;padding:22px;border:2px solid #a5d6a7">'+
+  return '<div style="background:#1a1a1a;border-radius:16px;padding:22px;border:2px solid '+lv.border+'">'+
     '<div style="text-align:center;margin-bottom:18px"><div style="color:#a5d6a7;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🧪 Özel Analiz — '+d.ticker+'</div>'+
     '<div style="color:#aaa;font-size:1.1rem;margin-bottom:4px">₺'+d.price+'</div>'+
-    '<div style="font-size:2.6rem;font-weight:bold;color:#a5d6a7">'+d.total+' puan</div></div>'+
+    '<div style="font-size:2.6rem;font-weight:bold;color:'+lv.color+'">'+d.total+' puan</div>'+
+    '<div style="color:'+lv.color+';font-size:.9rem;font-weight:600;margin-top:4px">'+lv.label+'</div></div>'+
     '<div style="color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Puan Dökümü</div>'+
     rows+
     '<div class="vol-desc" style="margin-top:14px">Bu deneysel özel analiz sistemidir. Yatırım tavsiyesi değildir.</div>'+
@@ -1091,8 +1093,8 @@ async function runScanOzel(){
     saveOzelScanHistory(d.results);
     var html='<div style="background:#1a1a1a;border-radius:16px;padding:20px"><div style="color:#a5d6a7;font-size:1.1rem;font-weight:bold;margin-bottom:16px">🧪 Özel Tarama Sonuçları ('+d.count+' hisse) — puana göre sıralı</div><div style="display:flex;flex-wrap:wrap;gap:8px">';
     d.results.forEach(function(r){
-      var c = r.total>0 ? '#00c853' : '#888';
-      html+='<div onclick="document.getElementById(\'tiOzel\').value=\''+r.ticker+'\';runOzel()" style="cursor:pointer;background:#0f0f0f;border:1px solid #2a2a2a;border-left:3px solid '+c+';border-radius:8px;padding:8px 12px;min-width:130px" onmouseover="this.style.background=\'#252525\'" onmouseout="this.style.background=\'#0f0f0f\'"><div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.9rem">'+r.ticker+'</span><span style="color:'+c+';font-weight:bold;font-size:.85rem">'+r.total+' p</span></div><div style="color:#888;font-size:.75rem;margin-top:2px">₺'+r.price+'</div></div>';
+      var lv = ozelLevel(r.total);
+      html+='<div onclick="document.getElementById(\'tiOzel\').value=\''+r.ticker+'\';runOzel()" style="cursor:pointer;background:'+lv.bg+';border:1px solid #2a2a2a;border-left:4px solid '+lv.border+';border-radius:8px;padding:8px 12px;min-width:130px" onmouseover="this.style.filter=\'brightness(1.4)\'" onmouseout="this.style.filter=\'none\'"><div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.9rem">'+r.ticker+'</span><span style="color:'+lv.color+';font-weight:bold;font-size:.85rem">'+r.total+' p</span></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px"><span style="color:#888;font-size:.75rem">₺'+r.price+'</span><span style="color:'+lv.color+';font-size:.7rem;font-weight:600">'+lv.label+'</span></div></div>';
     });
     html+='</div><div class="vol-desc" style="margin-top:8px">Deneysel özel tarama. Yatırım tavsiyesi değildir.</div></div>';
     box.innerHTML=html;
@@ -1160,6 +1162,12 @@ function clearOzelScanHistory(){
     try{ localStorage.removeItem('bistOzelScanHist'); }catch(e){}
     showOzelScanHistory();
   }
+}
+  function ozelLevel(total){
+  if(total >= 5)   return { label:'Çok Güçlü', color:'#7b2cbf', bg:'rgba(123,44,191,0.12)', border:'#7b2cbf' };
+  if(total >= 3)   return { label:'Güçlü',     color:'#2d8a34', bg:'rgba(45,138,52,0.12)',  border:'#2d8a34' };
+  if(total >= 1.5) return { label:'Orta',      color:'#a5d6a7', bg:'rgba(165,214,167,0.10)', border:'#a5d6a7' };
+  return                  { label:'Zayıf',     color:'#d4a017', bg:'rgba(212,160,23,0.10)',  border:'#d4a017' };
 }
 </script>
 </body>
