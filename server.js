@@ -886,7 +886,7 @@ async function quickScoreOzel(ticker, headers, tf) {
     })();
     // Ekran kutuları için RSI hâlâ hesaplansın (puana katılmıyor)
     const rsiS = calcRSISeries(closes, 14); const rsiV = rsiS.filter(x => x !== null); const rsi = rsiV.length ? rsiV[rsiV.length - 1] : 0;
-
+    console.log('OZEL DEBUG2: returna ulasti, total=', total, 'breakdown=', breakdown.length);
     return {
       ticker, price: parseFloat(price.toFixed(2)),
       total: parseFloat(total.toFixed(2)),
