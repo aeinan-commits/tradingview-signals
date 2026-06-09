@@ -980,6 +980,35 @@ async function quickScoreOzel(ticker, headers, tf) {
         if (aboveSMAany) vote(0.5, 'CCI > 14B Ort. (güç)', '+100 kırılımı sırasında CCI 14 barlık ortalamasının da üstünde.');
       }
     })();
+    // KURAL 8: MACD(12-26-9) — AL kesişimi +1, kesişimde sıfır üstü +0.5, histogram artıyor +0.5
+    (function () {
+      const macdData = calcMACD(closes, 12, 26, 9);
+      if (!macdData) return;
+      const M = macdData.macdLine, S = macdData.signalLine, H = macdData.histogram;
+      // Son 2 kapanmış bar: n-2 ve n-3. Kesişim için bir önceki barla karşılaştırırız.
+      // n-2'de kesişim: M[n-3]<=S[n-3] && M[n-2]>S[n-2]
+      // n-3'te kesişim: M[n-4]<=S[n-4] && M[n-3]>S[n-3]
+      function crossAt(i) {
+        if (M[i] === null || S[i] === null || M[i - 1] === null || S[i - 1] === null) return false;
+        return M[i - 1] <= S[i - 1] && M[i] > S[i];
+      }
+      const crossN2 = crossAt(n - 2);
+      const crossN3 = crossAt(n - 3);
+      if (!crossN2 && !crossN3) return;
+
+      vote(1, 'MACD AL Kesişimi', 'MACD son 2 kapanmış barın birinde sinyal çizgisini yukarı kesti.');
+
+      // Kesişimin olduğu bardaki MACD değeri sıfırın üstünde mi?
+      const crossBar = crossN2 ? (n - 2) : (n - 3);
+      if (M[crossBar] !== null && M[crossBar] > 0) {
+        vote(0.5, 'MACD Sıfır Üstü', 'Kesişim sıfır çizgisinin üstünde gerçekleşti — güçlü bölge.');
+      }
+
+      // Histogram son 2 kapanmış barda artıyor mu? (H[n-2] > H[n-3] > H[n-4])
+      if (H[n - 2] !== null && H[n - 3] !== null && H[n - 4] !== null && H[n - 2] > H[n - 3] && H[n - 3] > H[n - 4]) {
+        vote(0.5, 'MACD Histogram Artışı', 'Histogram son 2 kapanmış barda büyüyor — momentum güçleniyor.');
+      }
+    })();
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
