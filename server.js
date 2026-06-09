@@ -961,7 +961,7 @@ async function quickScoreOzel(ticker, headers, tf) {
       if ([mA, mB, mC].some(x => x === null)) return;
       const rising2 = mA > mB && mB > mC; // son 2 kapanmış barda kesintisiz artış
       if (!rising2) return;
-      vote(1, 'Momentum Yükselişi', 'Momentum(10) son 2 kapanmış barda kesintisiz arttı.');
+      vote(0.5, 'Momentum Yükselişi', 'Momentum(10) son 2 kapanmış barda kesintisiz arttı.');
       function momSMA15(idx) {
         const vals = [];
         for (let i = idx; i > idx - 15 && i >= 0; i--) { if (mom[i] !== null) vals.push(mom[i]); }
