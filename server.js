@@ -1266,6 +1266,36 @@ async function quickScoreOzel(ticker, headers, tf) {
         vote(1, 'Sıkışma Kırılımı', '5 bar dar aralıkta sıkışan fiyat, son kapanmış barda tepeyi %' + brkPct.toFixed(1) + ' + hacimle yukarı kırdı.');
       }
     })();
+    // KURAL 17: Pullback — yükselen trendde fiyat EMA50'ye geri çekilip sekti
+    //   Trend: fiyat EMA200 üstünde. Geri çekilme: son barlarda EMA50'ye yaklaştı.
+    //   Sekme: son kapanmış barda EMA50 üstünde + yükseliyor → +1
+    (function () {
+      const e50 = emaSeries(closes, 50);
+      const e200 = emaSeries(closes, 200);
+      const i = n - 2; // son kapanmış bar
+      if (e50[i] === null || e200[i] === null) return;
+
+      // 1) Trend: fiyat EMA200 üstünde
+      if (!(closes[i] > e200[i])) return;
+
+      // 2) Geri çekilme: son barlardan (i-3 .. i-1) en az biri EMA50'nin %2 yakınına indi
+      //    (fiyat EMA50'ye değdi/yaklaştı — kâr satışıyla geri çekilme)
+      let pulledBack = false;
+      for (let j = i - 3; j <= i - 1; j++) {
+        if (j < 0 || e50[j] === null) continue;
+        const distToEMA50 = ((closes[j] - e50[j]) / e50[j]) * 100;
+        // EMA50'nin %2 altı ile %2 üstü arası = "ortalamaya değdi"
+        if (distToEMA50 >= -2 && distToEMA50 <= 2) { pulledBack = true; break; }
+      }
+      if (!pulledBack) return;
+
+      // 3) Sekme: son kapanmış barda fiyat EMA50 üstünde (ama en fazla %5 uzakta) + yükseliyor
+      const distNow = ((closes[i] - e50[i]) / e50[i]) * 100;
+      const bouncing = closes[i] > e50[i] && distNow <= 5 && closes[i] > closes[i - 1];
+      if (bouncing) {
+        vote(1, 'Pullback Sekmesi', 'Yükselen trendde fiyat EMA50\'ye geri çekilip yukarı sekti (EMA50\'nin %' + distNow.toFixed(1) + ' üstünde) — trend içi giriş fırsatı.');
+      }
+    })();
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
