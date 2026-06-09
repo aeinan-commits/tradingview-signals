@@ -277,6 +277,45 @@ function calcADX(highs, lows, closes, period) {
     bullish: lastPlusDI > lastMinusDI
   };
 }
+// ADX serisi (+DI/-DI dahil, her bar için) - Wilder
+function calcADXSeries(highs, lows, closes, period) {
+  const n = closes.length;
+  if (n < period * 2 + 1) return null;
+  const tr = [], plusDM = [], minusDM = [];
+  for (let i = 1; i < n; i++) {
+    const upMove = highs[i] - highs[i - 1];
+    const downMove = lows[i - 1] - lows[i];
+    plusDM.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDM.push(downMove > upMove && downMove > 0 ? downMove : 0);
+    tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
+  }
+  function wilderSmooth(arr) {
+    const sm = [];
+    let sum = arr.slice(0, period).reduce((a, b) => a + b, 0);
+    sm[period - 1] = sum;
+    for (let i = period; i < arr.length; i++) { sum = sum - sum / period + arr[i]; sm[i] = sum; }
+    return sm;
+  }
+  const trS = wilderSmooth(tr), plusS = wilderSmooth(plusDM), minusS = wilderSmooth(minusDM);
+  const plusDI = new Array(n).fill(null), minusDI = new Array(n).fill(null), dx = [];
+  for (let i = period - 1; i < tr.length; i++) {
+    const pdi = trS[i] === 0 ? 0 : (plusS[i] / trS[i]) * 100;
+    const mdi = trS[i] === 0 ? 0 : (minusS[i] / trS[i]) * 100;
+    // tr indeksi i, closes indeksi i+1 (çünkü tr i=1'den başladı)
+    plusDI[i + 1] = pdi; minusDI[i + 1] = mdi;
+    const sum = pdi + mdi;
+    dx[i] = sum === 0 ? 0 : (Math.abs(pdi - mdi) / sum) * 100;
+  }
+  const adx = new Array(n).fill(null);
+  const dxStart = period - 1;
+  const dxVals = [];
+  for (let i = dxStart; i < dx.length; i++) if (dx[i] !== undefined) dxVals.push({ idx: i + 1, v: dx[i] });
+  if (dxVals.length < period) return null;
+  let a = dxVals.slice(0, period).reduce((s, o) => s + o.v, 0) / period;
+  adx[dxVals[period - 1].idx] = a;
+  for (let k = period; k < dxVals.length; k++) { a = (a * (period - 1) + dxVals[k].v) / period; adx[dxVals[k].idx] = a; }
+  return { adx, plusDI, minusDI };
+}
 function calcSupertrend(highs, lows, closes, period, mult) {
   const n = closes.length;
   if (n < period + 1) return null;
@@ -1007,6 +1046,47 @@ async function quickScoreOzel(ticker, headers, tf) {
       // Histogram son 2 kapanmış barda artıyor mu? (H[n-2] > H[n-3] > H[n-4])
       if (H[n - 2] !== null && H[n - 3] !== null && H[n - 4] !== null && H[n - 2] > H[n - 3] && H[n - 3] > H[n - 4]) {
         vote(0.5, 'MACD Histogram Artışı', 'Histogram son 2 kapanmış barda büyüyor — momentum güçleniyor.');
+      }
+    })();
+    // KURAL 9: ADX / +DI / -DI senaryoları (mevcut bar hariç, son 2 kapanmış bar)
+    (function () {
+      const a = calcADXSeries(highs, lows, closes, 14);
+      if (!a) return;
+      const ADX = a.adx, PDI = a.plusDI, MDI = a.minusDI;
+      const adxN2 = ADX[n - 2];
+      const pA = PDI[n - 2], pB = PDI[n - 3], pC = PDI[n - 4];
+      const mA = MDI[n - 2], mB = MDI[n - 3], mC = MDI[n - 4];
+
+      // 1) ADX son kapanmış barda > 30 → +0.5 (bağımsız)
+      if (adxN2 !== null && adxN2 > 30) {
+        vote(0.5, 'ADX > 30', 'Son kapanmış barda ADX 30 üstü — güçlü trend.');
+      }
+
+      // +DI son 2 kapanmış barda yükseliyor mu?
+      const pdiRising = [pA, pB, pC].every(x => x !== null) && pA > pB && pB > pC;
+
+      // 2) +DI son 2 kapanmış barda yükseliş → +0.5
+      if (pdiRising) {
+        vote(0.5, '+DI Yükselişi', '+DI son 2 kapanmış barda artıyor — alıcı gücü artıyor.');
+
+        // 3) Bu 2 bardan birinde +DI, -DI'yı yukarı kesti → +0.5
+        const crossN2 = [pA, pB, mA, mB].every(x => x !== null) && pB <= mB && pA > mA;
+        const crossN3 = [pB, pC, mB, mC].every(x => x !== null) && pC <= mC && pB > mB;
+        if (crossN2 || crossN3) {
+          vote(0.5, '+DI/-DI Kesişimi', '+DI, -DI çizgisini yukarı kesti — trend yukarı döndü.');
+        }
+      }
+
+      // 4) AYRI/BAĞIMSIZ kural: +DI son 2 kapanmış barda yükselirken,
+      //    +DI ya -DI'nın %20 üstünde, ya da bu 2 barda %20 üstüne çıktıysa → +0.5
+      if (pdiRising) {
+        const above20 = (x, y) => x !== null && y !== null && x >= y * 1.20;
+        // şu an (n-2) %20 üstünde mi, ya da n-3'ten n-2'ye geçişte %20 üstüne mi çıktı
+        const nowAbove = above20(pA, mA);
+        const crossedAbove = !above20(pB, mB) && above20(pA, mA); // n-3'te değil, n-2'de %20 üstüne çıktı
+        if (nowAbove || crossedAbove) {
+          vote(0.5, '+DI, -DI %20 Üstü', '+DI yükselirken -DI\'nın en az %20 üstünde — alıcı baskınlığı güçlü.');
+        }
       }
     })();
     return {
