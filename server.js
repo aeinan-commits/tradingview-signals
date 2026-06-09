@@ -662,39 +662,7 @@ async function quickScore(ticker, headers) {
     const boll = calcBollinger(closes, 20, 2);
     if (boll) { var bq={above_upper:-1,upper_half:-0.5,lower_half:0.5,below_lower:1}[boll.pos]; vote(bq,false); }
     
-// Parabolic SAR (standart: adım 0.02, maksimum 0.2)
-function calcPSAR(highs, lows, step, maxStep) {
-  const n = highs.length;
-  if (n < 3) return [];
-  const sar = new Array(n).fill(null);
-  let isUp = highs[1] >= highs[0];      // başlangıç trend yönü
-  let ep = isUp ? highs[1] : lows[1];   // extreme point
-  let af = step;                         // acceleration factor
-  sar[1] = isUp ? lows[0] : highs[0];
-  for (let i = 2; i < n; i++) {
-    let prevSar = sar[i - 1];
-    let curSar = prevSar + af * (ep - prevSar);
-    if (isUp) {
-      // yükseliş trendinde SAR son iki bardaki en düşüğü aşamaz
-      curSar = Math.min(curSar, lows[i - 1], lows[i - 2]);
-      if (lows[i] < curSar) {
-        // trend döndü → düşüşe
-        isUp = false; curSar = ep; ep = lows[i]; af = step;
-      } else {
-        if (highs[i] > ep) { ep = highs[i]; af = Math.min(af + step, maxStep); }
-      }
-    } else {
-      curSar = Math.max(curSar, highs[i - 1], highs[i - 2]);
-      if (highs[i] > curSar) {
-        isUp = true; curSar = ep; ep = highs[i]; af = step;
-      } else {
-        if (lows[i] < ep) { ep = lows[i]; af = Math.min(af + step, maxStep); }
-      }
-    }
-    sar[i] = curSar;
-  }
-  return sar;
-}
+
     // Supertrend
     const st = calcSupertrend(highs, lows, closes, 10, 3);
     if (st) vote(st.direction==='up'?1.5:-1.5, true, tMult);
@@ -795,6 +763,42 @@ app.get('/scan', async (req, res) => {
   results.sort((a, b) => b.norm - a.norm);
   res.json({ count: results.length, results });
 });
+// Parabolic SAR (standart: adım 0.02, maksimum 0.2)
+function calcPSAR(highs, lows, step, maxStep) {
+  const n = highs.length;
+  if (n < 3) return [];
+  const sar = new Array(n).fill(null);
+  let isUp = highs[1] >= highs[0];
+  let ep = isUp ? highs[1] : lows[1];
+  let af = step;
+  sar[1] = isUp ? lows[0] : highs[0];
+  for (let i = 2; i < n; i++) {
+    let prevSar = sar[i - 1];
+    let curSar = prevSar + af * (ep - prevSar);
+    if (isUp) {
+      curSar = Math.min(curSar, lows[i - 1], lows[i - 2]);
+      if (lows[i] < curSar) {
+        isUp = false; curSar = ep; ep = lows[i]; af = step;
+      } else {
+        if (highs[i] > ep) { ep = highs[i]; af = Math.min(af + step, maxStep); }
+      }
+    } else {
+      curSar = Math.max(curSar, highs[i - 1], highs[i - 2]);
+      if (highs[i] > curSar) {
+        isUp = true; curSar = ep; ep = highs[i]; af = step;
+      } else {
+        if (lows[i] < ep) { ep = lows[i]; af = Math.min(af + step, maxStep); }
+      }
+    }
+    sar[i] = curSar;
+  }
+  return sar;
+}
+
+// ============================================================
+// ===== ÖZEL ANALİZ SİSTEMİ (deneysel - ayrı puanlama) =====
+// ============================================================
+async function quickScoreOzel(ticker, headers, tf) {
 // ============================================================
 // ===== ÖZEL ANALİZ SİSTEMİ (deneysel - ayrı puanlama) =====
 // ============================================================
