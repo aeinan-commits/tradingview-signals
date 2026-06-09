@@ -946,6 +946,40 @@ async function quickScoreOzel(ticker, headers, tf) {
         if (aboveSMAany) vote(0.5, 'RSI > 9B Ort. (güç)', '70 kırılımı sırasında RSI 9 barlık ortalamasının da üstünde.');
       }
     })();
+    // KURAL 7: CCI(20) senaryoları (mevcut bar hariç, son 2 kapanmış bar) — eşikler ±100
+    (function () {
+      const cciArr = calcCCISeries(highs, lows, closes, 20); // hizalı seri (null'lı)
+      const cA = cciArr[n - 2], cB = cciArr[n - 3], cC = cciArr[n - 4];
+      if ([cA, cB, cC].some(x => x === null || x === undefined)) return;
+      const rising2 = cA > cB && cB > cC; // son 2 kapanmış barda CCI arttı
+      if (!rising2) return;
+
+      // 14 barlık CCI ortalaması (belirli bara kadar)
+      function cciSMA14(idx) {
+        const vals = [];
+        for (let i = idx; i > idx - 14 && i >= 0; i--) { if (cciArr[i] !== null && cciArr[i] !== undefined) vals.push(cciArr[i]); }
+        if (vals.length < 14) return null;
+        return vals.reduce((a, b) => a + b, 0) / 14;
+      }
+      const sA = cciSMA14(n - 2), sB = cciSMA14(n - 3);
+      const aboveSMAany = (sA !== null && cA > sA) || (sB !== null && cB > sB);
+
+      // --- SENARYO A: -100 altından dönüş ---
+      const startedBelow = cB < -100 || cC < -100;
+      if (startedBelow) {
+        vote(1, 'CCI -100 Altından Dönüş', 'CCI(20) son 2 kapanmış barda arttı, artış -100 altındayken başladı.');
+        const crossedUp = (cB < -100 && cA >= -100) || (cC < -100 && cB >= -100);
+        if (crossedUp) vote(0.5, 'CCI -100 Geçişi', 'Yükselişte CCI -100 seviyesini yukarı geçti.');
+        if (aboveSMAany) vote(0.5, 'CCI > 14B Ort. (dönüş)', 'Yükselişte CCI 14 barlık ortalamasının üstüne çıktı.');
+      }
+
+      // --- SENARYO B: +100 kırılımı ---
+      const crossed100 = (cB < 100 && cA >= 100) || (cC < 100 && cB >= 100);
+      if (crossed100) {
+        vote(1, 'CCI +100 Kırılımı', 'CCI(20) son 2 kapanmış bar artarken +100 seviyesini yukarı geçti — güç teyidi.');
+        if (aboveSMAany) vote(0.5, 'CCI > 14B Ort. (güç)', '+100 kırılımı sırasında CCI 14 barlık ortalamasının da üstünde.');
+      }
+    })();
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
