@@ -1171,6 +1171,19 @@ async function quickScoreOzel(ticker, headers, tf) {
         vote(1, 'OBV Zirve Kırılımı', 'OBV son 30 barın en yüksek seviyesini aştı — birikim yeni zirvede, fiyat takip edebilir.');
       }
     })();
+    // KURAL 13: Hacim patlaması — son kapanmış bar (n-2) hacmi ortalamanın ≥2 katı
+    //           VE fiyat arttıysa +1 (yukarı yönlü spike, anormal ilgi)
+    (function () {
+      const i = n - 2; // son kapanmış bar
+      if (i < 21) return;
+      const volSlice = vols.slice(i - 20, i); // i'den önceki 20 bar (i hariç)
+      const avgVol = volSlice.reduce((a, b) => a + b, 0) / volSlice.length;
+      const ratio = vols[i] / avgVol;
+      const priceUp = closes[i] > closes[i - 1];
+      if (ratio >= 2 && priceUp) {
+        vote(1, 'Hacim Patlaması', 'Son kapanmış barda hacim ortalamanın ' + ratio.toFixed(1) + ' katı + fiyat arttı — anormal alıcı ilgisi.');
+      }
+    })();
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
