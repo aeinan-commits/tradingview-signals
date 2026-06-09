@@ -398,7 +398,7 @@ async function fetchTrendForTF(ticker, interval, range, resample, headers) {
     else if (score <= -1) dir = 'down';
     else dir = 'neutral';
     return { dir, score, votes };
-  } catch (e) { return null; }
+  } catch (e) { console.log('OZEL HATA:', e.message); return null; }
 }
 app.get('/analyze/:ticker', async (req, res) => {
   try {
