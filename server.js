@@ -908,6 +908,44 @@ async function quickScoreOzel(ticker, headers, tf) {
         vote(1, 'Momentum > 15B Ort.', 'Yükseliş sırasında momentum en az bir kapanmış barda 15 barlık ortalamasının üstüne çıktı.');
       }
     })();
+    // KURAL 6: RSI(14) senaryoları (mevcut bar hariç, son 2 kapanmış bar)
+    (function () {
+      const rsiArr = calcRSISeries(closes, 14); // hizalı seri (null'lı)
+      const rA = rsiArr[n - 2], rB = rsiArr[n - 3], rC = rsiArr[n - 4]; // son kapanmışlar
+      if ([rA, rB, rC].some(x => x === null || x === undefined)) return;
+      const rising2 = rA > rB && rB > rC; // son 2 kapanmış barda RSI arttı
+      if (!rising2) return;
+
+      // 9 barlık RSI ortalaması (belirli bara kadar)
+      function rsiSMA9(idx) {
+        const vals = [];
+        for (let i = idx; i > idx - 9 && i >= 0; i--) { if (rsiArr[i] !== null && rsiArr[i] !== undefined) vals.push(rsiArr[i]); }
+        if (vals.length < 9) return null;
+        return vals.reduce((a, b) => a + b, 0) / 9;
+      }
+      const sA = rsiSMA9(n - 2), sB = rsiSMA9(n - 3);
+      const aboveSMAany = (sA !== null && rA > sA) || (sB !== null && rB > sB);
+
+      // --- SENARYO A: 30 altından dönüş ---
+      // İki kapanmış bardan en az biri 30'un altında (artış 30 altındayken başlamış)
+      const startedBelow30 = rB < 30 || rC < 30;
+      if (startedBelow30) {
+        vote(1, 'RSI 30 Altından Dönüş', 'RSI(14) son 2 kapanmış barda arttı, artış 30 altındayken başladı.');
+        // İki bardan herhangi biri artarken 30'u yukarı geçtiyse +0.5
+        const crossed30 = (rB < 30 && rA >= 30) || (rC < 30 && rB >= 30);
+        if (crossed30) vote(0.5, 'RSI 30 Geçişi', 'Yükselişte RSI 30 seviyesini yukarı geçti.');
+        // 9 barlık ortalamasını da geçtiyse +0.5
+        if (aboveSMAany) vote(0.5, 'RSI > 9B Ort. (dönüş)', 'Yükselişte RSI 9 barlık ortalamasının üstüne çıktı.');
+      }
+
+      // --- SENARYO B: 70 kırılımı (güç teyidi) ---
+      // İki bardan herhangi biri artarken 70'i yukarı geçtiyse +1
+      const crossed70 = (rB < 70 && rA >= 70) || (rC < 70 && rB >= 70);
+      if (crossed70) {
+        vote(1, 'RSI 70 Kırılımı', 'RSI(14) son 2 kapanmış bar artarken 70 seviyesini yukarı geçti — güç teyidi.');
+        if (aboveSMAany) vote(0.5, 'RSI > 9B Ort. (güç)', '70 kırılımı sırasında RSI 9 barlık ortalamasının da üstünde.');
+      }
+    })();
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
