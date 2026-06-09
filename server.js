@@ -808,8 +808,8 @@ async function quickScoreOzel(ticker, headers, tf) {
     let valid = q.close.map((p, i) => ({ p, v: q.volume[i], h: q.high[i], l: q.low[i], o: q.open[i] })).filter(x => x.p !== null && x.v !== null && x.h !== null && x.l !== null && x.o !== null);
     let closes = valid.map(x => x.p), vols = valid.map(x => x.v), highs = valid.map(x => x.h), lows = valid.map(x => x.l), opens = valid.map(x => x.o);
     if (cfg.resample) { const rs = resampleTo4h(opens, closes, vols, highs, lows); opens = rs.opens; closes = rs.closes; vols = rs.vols; highs = rs.highs; lows = rs.lows; }
-    if (closes.length < 60) return null;
-
+    console.log('OZEL DEBUG', ticker, 'tf=', tf, 'closes=', closes.length);
+    if (closes.length < 60) { console.log('OZEL: yetersiz veri', closes.length); return null; }
     const price = closes[closes.length - 1];
     let total = 0, maxW = 0;
     const breakdown = [];
