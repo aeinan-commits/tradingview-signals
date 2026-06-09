@@ -883,6 +883,53 @@ async function quickScoreOzel(ticker, headers, tf) {
         vote(1, 'Dip Bölgesi', 'Fiyat son 1 yılın en düşüğünün %' + distPct.toFixed(1) + ' üstünde (≤%20 sınırı içinde).');
       }
     })();
+    // KURAL 5: Momentum(10) son 3 barda kesintisiz arttıysa +1,
+    //          ayrıca 15 barlık kendi ortalamasını da geçtiyse +1 daha
+    (function () {
+      const period = 10;
+      if (n < period + 18) return; // momentum + 15 ort + 3 bar için yeterli veri
+      // Momentum serisi: closes[i] - closes[i-10]
+      const mom = [];
+      for (let i = 0; i < n; i++) mom[i] = i < period ? null : closes[i] - closes[i - period];
+      // Son 3 barda kesintisiz artış: mom[n-1] > mom[n-2] > mom[n-3] > mom[n-4]
+      const m1 = mom[n - 1], m2 = mom[n - 2], m3 = mom[n - 3], m4 = mom[n - 4];
+      if ([m1, m2, m3, m4].some(x => x === null)) return;
+      const rising3 = m1 > m2 && m2 > m3 && m3 > m4;
+      if (!rising3) return;
+      vote(1, 'Momentum Yükselişi', 'Momentum(10) son 3 barda kesintisiz arttı.');
+      // 15 barlık momentum ortalaması
+      const momVals = mom.filter(x => x !== null);
+      if (momVals.length >= 15) {
+        const sma15 = momVals.slice(-15).reduce((a, b) => a + b, 0) / 15;
+        if (m1 > sma15) {
+          vote(1, 'Momentum > 15B Ort.', 'Momentum(10) aynı anda 15 barlık ortalamasını da geçti.');
+        }
+      }
+    })();
+    // KURAL 5: Momentum(10) son 3 barda kesintisiz arttıysa +1,
+    //          ve bu sırada en az bir barda 15 barlık ortalamasını da geçtiyse +1 daha
+    (function () {
+      const period = 10;
+      if (n < period + 18) return;
+      const mom = [];
+      for (let i = 0; i < n; i++) mom[i] = i < period ? null : closes[i] - closes[i - period];
+      const m1 = mom[n - 1], m2 = mom[n - 2], m3 = mom[n - 3], m4 = mom[n - 4];
+      if ([m1, m2, m3, m4].some(x => x === null)) return;
+      const rising3 = m1 > m2 && m2 > m3 && m3 > m4;
+      if (!rising3) return;
+      vote(1, 'Momentum Yükselişi', 'Momentum(10) son 3 barda kesintisiz arttı.');
+      function momSMA15(idx) {
+        const vals = [];
+        for (let i = idx; i > idx - 15 && i >= 0; i--) { if (mom[i] !== null) vals.push(mom[i]); }
+        if (vals.length < 15) return null;
+        return vals.reduce((a, b) => a + b, 0) / 15;
+      }
+      const s1 = momSMA15(n - 1), s2 = momSMA15(n - 2), s3 = momSMA15(n - 3);
+      const aboveAny = (s1 !== null && m1 > s1) || (s2 !== null && m2 > s2) || (s3 !== null && m3 > s3);
+      if (aboveAny) {
+        vote(1, 'Momentum > 15B Ort.', 'Yükseliş sırasında momentum son 3 barın en az birinde 15 barlık ortalamasının üstüne çıktı.');
+      }
+    })();
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
