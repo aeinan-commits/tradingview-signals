@@ -1328,6 +1328,37 @@ async function quickScoreOzel(ticker, headers, tf) {
         vote(pts, 'Çoklu Pozitif Divergence', divs.length + ' gösterge (' + divs.join(', ') + ') aynı anda pozitif uyumsuzluk gösteriyor — güçlü dönüş sinyali.');
       }
     })();
+    // META-BONUS: kaç farklı kategoriden sinyal geldi? (çeşitlilik ödülü)
+    (function () {
+      // Kural adını kategoriye eşle
+      const categoryMap = {
+        'EMA200 Kırılımı': 'trend', 'Golden Cross': 'trend', 'Golden Cross + Fiyat Teyidi': 'trend',
+        'Parabolik SAR': 'trend', 'Pullback Sekmesi': 'trend',
+        'Momentum Yükselişi': 'momentum', 'Momentum > 15B Ort.': 'momentum',
+        'RSI 30 Altından Dönüş': 'momentum', 'RSI 30 Geçişi': 'momentum', 'RSI > 9B Ort. (dönüş)': 'momentum',
+        'RSI 70 Kırılımı': 'momentum', 'RSI > 9B Ort. (güç)': 'momentum',
+        'CCI -100 Altından Dönüş': 'momentum', 'CCI -100 Geçişi': 'momentum', 'CCI > 14B Ort. (dönüş)': 'momentum',
+        'CCI +100 Kırılımı': 'momentum', 'CCI > 14B Ort. (güç)': 'momentum',
+        'MACD AL Kesişimi': 'momentum', 'MACD Sıfır Üstü': 'momentum', 'MACD Histogram Artışı': 'momentum',
+        'ADX > 30 (Yukarı Trend)': 'momentum', '+DI Yükselişi': 'momentum', '+DI/-DI Kesişimi': 'momentum', '+DI, -DI %20 Üstü': 'momentum',
+        'Hacimli Yükseliş': 'hacim', 'OBV Zirve Kırılımı': 'hacim', 'Hacim Patlaması': 'hacim',
+        'Dip Bölgesi': 'donus', 'Bollinger Alt Bant Dönüşü': 'donus', 'Bollinger Squeeze Kırılımı': 'donus', 'Çoklu Pozitif Divergence': 'donus',
+        'Direnç Kırılımı': 'kirilim', 'Sıkışma Kırılımı': 'kirilim', 'Yükselen Dipler': 'kirilim'
+      };
+      const cats = new Set();
+      breakdown.forEach(function (b) {
+        const c = categoryMap[b.name];
+        if (c) cats.add(c);
+      });
+      const catCount = cats.size;
+      let bonus = 0;
+      if (catCount >= 5) bonus = 2;
+      else if (catCount === 4) bonus = 1.5;
+      else if (catCount === 3) bonus = 1;
+      if (bonus > 0) {
+        vote(bonus, 'Çoklu Kategori Teyidi', catCount + ' farklı kategoriden sinyal (' + Array.from(cats).join(', ') + ') — bağımsız açılar aynı yöne işaret ediyor.');
+      }
+    })();
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
