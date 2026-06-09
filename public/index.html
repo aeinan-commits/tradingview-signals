@@ -1097,6 +1097,68 @@ async function runScanOzel(){
   }catch(e){ box.innerHTML='<div class="error">❌ Hata: '+e.message+'</div>'; }
   btn.disabled=false; btn.textContent='🧪 BIST100 Tara Özel';
 }
+  // ===== ÖZEL TARAMA GEÇMİŞİ (son 10 tarama, en yüksek 5 + beraberlik) =====
+function saveOzelScanHistory(results){
+  try{
+    if(!results || results.length===0) return;
+    // Puana göre sıralı (zaten sunucudan total'a göre sıralı geliyor ama garanti edelim)
+    var sorted = results.slice().sort(function(a,b){ return b.total-a.total; });
+    // En yüksek 5'i al, ama 5.'nin puanına eşit olanları da dahil et
+    var top = sorted.slice(0,5);
+    if(sorted.length>5){
+      var fifthScore = sorted[4].total;
+      for(var k=5;k<sorted.length;k++){
+        if(sorted[k].total===fifthScore) top.push(sorted[k]);
+        else break;
+      }
+    }
+    var now = new Date();
+    var entry = {
+      stamp: now.toLocaleDateString('tr-TR')+' '+now.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}),
+      tf: selectedTF,
+      picks: top.map(function(r){ return { ticker:r.ticker, total:r.total, price:r.price }; })
+    };
+    var hist = [];
+    try{ hist = JSON.parse(localStorage.getItem('bistOzelScanHist')||'[]'); }catch(e){ hist=[]; }
+    hist.unshift(entry);
+    if(hist.length>10) hist = hist.slice(0,10);
+    localStorage.setItem('bistOzelScanHist', JSON.stringify(hist));
+  }catch(e){}
+}
+
+function showOzelScanHistory(){
+  var box=document.getElementById('scanResult');
+  box.style.display='block';
+  var hist=[];
+  try{ hist=JSON.parse(localStorage.getItem('bistOzelScanHist')||'[]'); }catch(e){ hist=[]; }
+  if(hist.length===0){
+    box.innerHTML='<div style="background:#1a1a1a;border-radius:12px;padding:24px;text-align:center;color:#888">Henüz kayıtlı özel tarama yok. "BIST100 Tara Özel" çalıştırdıkça en yüksek puanlılar burada birikecek.</div>';
+    return;
+  }
+  var html='<div style="background:#1a1a1a;border-radius:16px;padding:20px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px"><div style="color:#a5d6a7;font-size:1.1rem;font-weight:bold">🗂️ Özel Tarama Geçmişi (son '+hist.length+')</div><button onclick="clearOzelScanHistory()" style="background:#0f0f0f;color:#888;border:1px solid #333;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:.75rem">Geçmişi Temizle</button></div>';
+  hist.forEach(function(e){
+    html+='<div style="margin-bottom:16px;border-bottom:1px solid #2a2a2a;padding-bottom:12px">'+
+      '<div style="color:#888;font-size:.78rem;margin-bottom:8px">'+e.stamp+' &nbsp;•&nbsp; '+(tfLabels[e.tf]||e.tf)+' &nbsp;•&nbsp; '+e.picks.length+' hisse</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:8px">';
+    e.picks.forEach(function(p,idx){
+      var c = p.total>0 ? '#a5d6a7' : '#888';
+      html+='<div onclick="document.getElementById(\'tiOzel\').value=\''+p.ticker+'\';runOzel()" style="cursor:pointer;background:#0f0f0f;border:1px solid #2a2a2a;border-left:3px solid '+c+';border-radius:8px;padding:8px 12px;min-width:120px" onmouseover="this.style.background=\'#252525\'" onmouseout="this.style.background=\'#0f0f0f\'">'+
+        '<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.88rem">'+(idx+1)+'. '+p.ticker+'</span><span style="color:'+c+';font-weight:bold;font-size:.85rem">'+p.total+'p</span></div>'+
+        '<div style="color:#888;font-size:.72rem;margin-top:2px">₺'+p.price+'</div>'+
+      '</div>';
+    });
+    html+='</div></div>';
+  });
+  html+='<div class="vol-desc" style="margin-top:4px">Her özel tarama sonrası en yüksek 5 hisse (beraberlik dahil) otomatik kaydedilir. Sadece bu tarayıcıda saklanır.</div></div>';
+  box.innerHTML=html;
+}
+
+function clearOzelScanHistory(){
+  if(confirm('Tüm özel tarama geçmişi silinecek. Emin misiniz?')){
+    try{ localStorage.removeItem('bistOzelScanHist'); }catch(e){}
+    showOzelScanHistory();
+  }
+}
 </script>
 </body>
 </html>
