@@ -111,7 +111,7 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 <div id="favBar" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;max-width:700px;margin-left:auto;margin-right:auto"></div>
 <div style="text-align:center;margin-bottom:20px">
 <button id="scanBtn" style="padding:10px 24px;background:#9c27b0;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem">📊 BIST100 Tara</button>
-<button id="scanBtnOzel" style="padding:10px 24px;background:#a5d6a7;color:#1a1a1a;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem;margin-left:8px">🧪 BIST100 Tara Özel</button>
+<button id="scanBtnOzel" style="padding:10px 24px;background:#a5d6a7;color:#1a1a1a;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem;margin-left:8px">🧪 BIST100 Tara Özel</button><button id="scanHistBtn" onclick="showOzelScanHistory()" style="padding:10px 24px;background:#1a1a1a;color:#a5d6a7;border:1px solid #a5d6a7;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem;margin-left:8px">🗂️ Tarama Geçmişi</button>
 </div>
 <div id="scanResult" style="display:none;margin-bottom:24px"></div>
 <div class="tf-bar">
@@ -221,6 +221,7 @@ async function runScan(){
     var res=await fetch('/scan');
     var d=await res.json();
     if(!d.results){ box.innerHTML='<div class="error">Tarama başarısız.</div>'; btn.disabled=false; btn.textContent='📊 BIST100 Tara'; return; }
+    saveOzelScanHistory(d.results);
     var groups={'GÜÇLÜ AL':[],'AL':[],'NÖTR':[],'SAT':[],'GÜÇLÜ SAT':[]};
     d.results.forEach(function(r){ if(groups[r.verdict]) groups[r.verdict].push(r); });
     var colors={'GÜÇLÜ AL':'#00c853','AL':'#66bb6a','NÖTR':'#f0b90b','SAT':'#ff7043','GÜÇLÜ SAT':'#ff4444'};
