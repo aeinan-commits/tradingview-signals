@@ -1328,6 +1328,81 @@ async function quickScoreOzel(ticker, headers, tf) {
         vote(pts, 'Çoklu Pozitif Divergence', divs.length + ' gösterge (' + divs.join(', ') + ') aynı anda pozitif uyumsuzluk gösteriyor — güçlü dönüş sinyali.');
       }
     })();
+    // KURAL 19: Grafik formasyonları (75 bar pencere, onay son 10 bar)
+    (function () {
+      if (n < 80) return;
+      const from = n - 75, to = n - 1, w = 3;
+      const recentStart = n - 10;
+      const near = (a, b) => Math.abs(a - b) / b <= 0.03;
+      // Salınım noktaları
+      const sh = [], sl = [];
+      for (let idx = from + w; idx <= to - w; idx++) {
+        let isH = true, isL = true;
+        for (let j = 1; j <= w; j++) {
+          if (highs[idx] <= highs[idx - j] || highs[idx] <= highs[idx + j]) isH = false;
+          if (lows[idx] >= lows[idx - j] || lows[idx] >= lows[idx + j]) isL = false;
+        }
+        if (isH) sh.push({ idx, price: highs[idx] });
+        if (isL) sl.push({ idx, price: lows[idx] });
+      }
+
+      // ÇİFT DİP +1
+      if (sl.length >= 2) {
+        const d1 = sl[sl.length - 2], d2 = sl[sl.length - 1];
+        if (near(d1.price, d2.price)) {
+          let neck = -Infinity; for (let i = d1.idx; i <= d2.idx; i++) if (highs[i] > neck) neck = highs[i];
+          let bi = -1; for (let i = d2.idx + 1; i < n; i++) { if (closes[i] > neck) { bi = i; break; } }
+          if (bi >= recentStart) vote(1, 'Çift Dip', 'İki benzer dip sonrası boyun çizgisi yukarı kırıldı — dönüş formasyonu.');
+        }
+      }
+      // ÜÇLÜ DİP +1
+      if (sl.length >= 3) {
+        const a = sl[sl.length - 3], b = sl[sl.length - 2], c = sl[sl.length - 1];
+        if (near(a.price, b.price) && near(b.price, c.price)) {
+          let neck = -Infinity; for (let i = a.idx; i <= c.idx; i++) if (highs[i] > neck) neck = highs[i];
+          let bi = -1; for (let i = c.idx + 1; i < n; i++) { if (closes[i] > neck) { bi = i; break; } }
+          if (bi >= recentStart) vote(1, 'Üçlü Dip', 'Üç benzer dip sonrası boyun çizgisi yukarı kırıldı — güçlü dönüş.');
+        }
+      }
+      // ÇİFT TEPE -1
+      if (sh.length >= 2) {
+        const t1 = sh[sh.length - 2], t2 = sh[sh.length - 1];
+        if (near(t1.price, t2.price)) {
+          let neck = Infinity; for (let i = t1.idx; i <= t2.idx; i++) if (lows[i] < neck) neck = lows[i];
+          let bi = -1; for (let i = t2.idx + 1; i < n; i++) { if (closes[i] < neck) { bi = i; break; } }
+          if (bi >= recentStart) vote(-1, 'Çift Tepe', 'İki benzer tepe sonrası boyun çizgisi aşağı kırıldı — tepeden dönüş riski.');
+        }
+      }
+      // ÜÇLÜ TEPE -1
+      if (sh.length >= 3) {
+        const a = sh[sh.length - 3], b = sh[sh.length - 2], c = sh[sh.length - 1];
+        if (near(a.price, b.price) && near(b.price, c.price)) {
+          let neck = Infinity; for (let i = a.idx; i <= c.idx; i++) if (lows[i] < neck) neck = lows[i];
+          let bi = -1; for (let i = c.idx + 1; i < n; i++) { if (closes[i] < neck) { bi = i; break; } }
+          if (bi >= recentStart) vote(-1, 'Üçlü Tepe', 'Üç benzer tepe sonrası boyun çizgisi aşağı kırıldı — güçlü düşüş riski.');
+        }
+      }
+      // YÜKSELEN ÜÇGEN +1
+      if (sh.length >= 2 && sl.length >= 2) {
+        const t1 = sh[sh.length - 2], t2 = sh[sh.length - 1];
+        const d1 = sl[sl.length - 2], d2 = sl[sl.length - 1];
+        if (near(t1.price, t2.price) && d2.price > d1.price * 1.02) {
+          const res = Math.max(t1.price, t2.price);
+          let bi = -1; for (let i = Math.max(t2.idx, d2.idx) + 1; i < n; i++) { if (closes[i] > res) { bi = i; break; } }
+          if (bi >= recentStart) vote(1, 'Yükselen Üçgen', 'Yatay direnç + yükselen dipler, direnç yukarı kırıldı — alım sinyali.');
+        }
+      }
+      // DÜŞEN ÜÇGEN -1
+      if (sh.length >= 2 && sl.length >= 2) {
+        const t1 = sh[sh.length - 2], t2 = sh[sh.length - 1];
+        const d1 = sl[sl.length - 2], d2 = sl[sl.length - 1];
+        if (near(d1.price, d2.price) && t2.price < t1.price * 0.98) {
+          const sup = Math.min(d1.price, d2.price);
+          let bi = -1; for (let i = Math.max(t2.idx, d2.idx) + 1; i < n; i++) { if (closes[i] < sup) { bi = i; break; } }
+          if (bi >= recentStart) vote(-1, 'Düşen Üçgen', 'Yatay destek + alçalan tepeler, destek aşağı kırıldı — düşüş riski.');
+        }
+      }
+    })();
     // META-BONUS: kaç farklı kategoriden sinyal geldi? (çeşitlilik ödülü)
     (function () {
       // Kural adını kategoriye eşle
