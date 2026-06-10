@@ -1455,11 +1455,13 @@ async function quickScoreOzel(ticker, headers, tf) {
         vote(bonus, 'Çoklu Kategori Teyidi', catCount + ' farklı kategoriden sinyal (' + Array.from(cats).join(', ') + ') — bağımsız açılar aynı yöne işaret ediyor.');
       }
     })();
+    const acikBarPct = closes.length >= 2 ? ((closes[closes.length - 1] - closes[closes.length - 2]) / closes[closes.length - 2]) * 100 : 0;
     return {
       ticker,
       price: parseFloat(price.toFixed(2)),
       total: parseFloat(total.toFixed(2)),
-      breakdown
+      breakdown,
+      acikBarPct: parseFloat(acikBarPct.toFixed(2))
     };
   } catch (e) {
     console.log('OZEL HATA:', e.message);
