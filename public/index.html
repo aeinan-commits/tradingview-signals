@@ -233,7 +233,7 @@ async function runScan(){
       html+='<div style="margin-bottom:18px"><div style="color:'+colors[g]+';font-size:.85rem;font-weight:bold;margin-bottom:8px;border-bottom:1px solid #2a2a2a;padding-bottom:6px">'+emojis[g]+' '+g+' ('+arr.length+')</div><div style="display:flex;flex-wrap:wrap;gap:8px">';
       arr.forEach(function(r){
         html+='<div onclick="openScan(\''+r.ticker+'\')" style="cursor:pointer;background:#0f0f0f;border:1px solid #2a2a2a;border-left:3px solid '+colors[g]+';border-radius:8px;padding:8px 12px;min-width:130px;flex:0 0 auto" onmouseover="this.style.background=\'#252525\'" onmouseout="this.style.background=\'#0f0f0f\'">'+
-          '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.9rem">'+r.ticker+'</span><span style="color:'+colors[g]+';font-weight:bold;font-size:.85rem">%'+r.pct+'</span></div>'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.9rem">'+r.ticker+sektorYildiz(r.ticker)+'</span><span style="color:'+colors[g]+';font-weight:bold;font-size:.85rem">%'+r.pct+'</span></div>'+
           '<div style="color:#888;font-size:.75rem;margin-top:2px">₺'+r.price+'</div>'+
         '</div>';
       });
@@ -1118,7 +1118,7 @@ async function runScanOzel(){
       html+='</div>';
     }
     // Hisseler bölümü
-    html+='<div style="color:#a5d6a7;font-size:1.1rem;font-weight:bold;margin-bottom:16px">🧪 Özel Tarama Sonuçları ('+hisseler.length+' hisse) — puana göre sıralı</div><div style="display:flex;flex-wrap:wrap;gap:8px">';
+    html+='<div style="color:#a5d6a7;font-size:1.1rem;font-weight:bold;margin-bottom:4px">🧪 Özel Tarama Sonuçları ('+hisseler.length+' hisse) — puana göre sıralı</div><div style="color:#888;font-size:.72rem;margin-bottom:16px">⭐ Analiz sistemi bu sektörde (banka/sağlık) tarihsel olarak daha tutarlı sonuç vermektedir.</div><div style="display:flex;flex-wrap:wrap;gap:8px">';
     hisseler.forEach(function(r){ html+=ozelKart(r); });
     html+='</div><div class="vol-desc" style="margin-top:8px">Deneysel özel tarama. Yatırım tavsiyesi değildir.</div></div>';
     box.innerHTML=html;
@@ -1191,7 +1191,7 @@ function showOzelScanHistory(){
         }
       }
       html+='<div onclick="document.getElementById(\'tiOzel\').value=\''+p.ticker+'\';runOzel()" style="cursor:pointer;background:'+lv.bg+';border:1px solid #2a2a2a;border-left:3px solid '+lv.border+';border-radius:8px;padding:8px 12px;min-width:120px" onmouseover="this.style.filter=\'brightness(1.3)\'" onmouseout="this.style.filter=\'none\'">'+
-        '<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.88rem">'+(idx+1)+'. '+p.ticker+'</span><span style="color:'+lv.color+';font-weight:bold;font-size:.85rem">'+p.total+'p</span></div>'+
+        '<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.88rem">'+p.ticker+sektorYildiz(p.ticker)+'</span><span style="color:'+lv.color+';font-weight:bold;font-size:.85rem">'+p.total+'p</span></div>'+
         '<div style="color:#888;font-size:.72rem;margin-top:2px">₺'+p.price+'</div>'+
         perfHtml+
       '</div>';
@@ -1212,6 +1212,11 @@ function clearOzelScanHistory(){
   if(total >= 1.5) return { label:'Güçlü',     color:'#2d8a34', bg:'rgba(45,138,52,0.12)',  border:'#2d8a34' };
   if(total >= 0.5) return { label:'Orta',      color:'#a5d6a7', bg:'rgba(165,214,167,0.10)', border:'#a5d6a7' };
   return                  { label:'Zayıf',     color:'#d4a017', bg:'rgba(212,160,23,0.10)',  border:'#d4a017' };
+  // Sistemin geri testte daha tutarlı çıktığı sektörler (banka + sağlık)
+var GUVENILIR_SEKTOR = ['AKBNK','GARAN','ISCTR','YKBNK','VAKBN','HALKB','TSKB','ALBRK','SKBNK','MPARK','GENIL'];
+function sektorYildiz(ticker){
+  return GUVENILIR_SEKTOR.indexOf(ticker)!==-1 ? ' ⭐' : '';
+}
 }
 </script>
 </body>
