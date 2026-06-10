@@ -1219,5 +1219,34 @@ function sektorYildiz(ticker){
 }
 }
 </script>
+  <div style="max-width:900px;margin:30px auto;padding:0 16px">
+  <details style="background:#1a1a1a;border-radius:12px;padding:16px 20px;border:1px solid #2a2a2a">
+    <summary style="cursor:pointer;color:#a5d6a7;font-weight:bold;font-size:1rem;outline:none">ℹ️ Özel Analiz Sistemi — Nasıl Çalışır?</summary>
+    <div style="color:#bbb;font-size:.85rem;line-height:1.7;margin-top:14px">
+
+      <p style="margin:0 0 12px"><b style="color:#a5d6a7">Amaç:</b> BIST hisselerinde, ucuza/dönüş noktasında alım fırsatı olabilecek hisseleri bir puanlama sistemiyle öne çıkarmak. Kısa vadeli (yaklaşık 5 günlük) bakış için tasarlanmıştır.</p>
+
+      <p style="margin:0 0 8px"><b style="color:#a5d6a7">Kullanılan kurallar (puanlar):</b></p>
+      <ul style="margin:0 0 12px;padding-left:20px">
+        <li><b>Golden Cross (Teyitli) — +2:</b> EMA50, EMA200'ü yukarı kesmiş, üstünde kalmış ve fiyat EMA50 üstünde. Geri testte en güçlü sinyal.</li>
+        <li><b>Bollinger — +1:</b> Fiyat alt banttan içeri dönmüş (aşırı satımdan toparlanma) veya sıkışmadan yukarı kırılmış.</li>
+        <li><b>Çoklu Pozitif Divergence — +1 ve üzeri:</b> RSI, MACD, OBV, CCI göstergelerinden en az ikisi aynı anda olumlu uyumsuzluk gösteriyor.</li>
+        <li><b>Dip Bölgesi — +1:</b> Fiyat son 1 yılın en düşüğüne yakın bölgede.</li>
+        <li><b>EMA200 Kırılımı — +1:</b> Fiyat son barlarda EMA200'ün üstüne çıkıp kalmış.</li>
+        <li><b>Yükselen Dipler — +1:</b> Son dönemde dipler giderek yükseliyor (yukarı yapı).</li>
+        <li><b>Grafik Formasyonları — ±1:</b> Çift/Üçlü Dip, Yükselen Üçgen (+1, alım); Çift/Üçlü Tepe, Düşen Üçgen (−1, tepeden dönüş riski).</li>
+      </ul>
+
+      <p style="margin:0 0 12px"><b style="color:#a5d6a7">Puan seviyeleri:</b> <span style="color:#d4a017">Zayıf (0)</span>, <span style="color:#a5d6a7">Orta (0.5–1)</span>, <span style="color:#2d8a34">Güçlü (1.5–2.5)</span>, <span style="color:#7b2cbf">Çok Güçlü (3+)</span>. Yüksek puan, birden çok kuralın aynı anda olumlu sinyal verdiği anlamına gelir.</p>
+
+      <p style="margin:0 0 12px">⭐ <b>Yıldız:</b> Sistem geri testlerde banka ve sağlık sektöründe daha tutarlı sonuç verdiği için, bu sektördeki hisseler yıldızla işaretlenir.</p>
+
+      <p style="margin:0 0 12px"><b style="color:#a5d6a7">Önemli notlar:</b> Puanlar her zaman <b>son kapanmış bara</b> göre hesaplanır; açık (canlı) bar dahil edilmez. Tüm kurallar, geçmiş 2–5 yıllık BIST verisiyle test edilerek seçilmiştir — geri testte değer katmayan göstergeler (momentum, hacim patlaması vb.) bilinçli olarak devre dışı bırakılmıştır.</p>
+
+      <p style="margin:0;color:#888;font-size:.8rem"><b>Uyarı:</b> Bu sistem deneyseldir ve yatırım tavsiyesi değildir. Sonuçlar geçmiş verilere dayanır, geleceği garanti etmez. Sistem BIST'e ve mevcut piyasa koşullarına göre ayarlanmıştır; farklı piyasalarda veya koşullarda aynı performansı göstermeyebilir. Veriler Yahoo Finance kaynaklıdır ve profesyonel terminallerden küçük farklar gösterebilir. Her zaman kendi araştırmanızı yapın.</p>
+
+    </div>
+  </details>
+</div>
 </body>
 </html>
