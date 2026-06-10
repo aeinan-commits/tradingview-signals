@@ -1225,10 +1225,9 @@ async function quickScoreOzel(ticker, headers, tf) {
         if (held) { crossedAndHeld = true; break; }
       }
       if (!crossedAndHeld) return;
-      vote(1, 'Golden Cross', 'Son 5 kapanmış barda EMA50, EMA200\'ü yukarı kesti ve üstünde kaldı — uzun vadeli yükseliş dönüşü.');
-      // Fiyat da son kapanmış barda EMA50 üstündeyse +0.5
+      // Geri test: teyitsiz Golden Cross zararlı, sadece fiyat teyidi varken puanla (+2)
       if (closes[n - 2] > e50[n - 2]) {
-        vote(0.5, 'Golden Cross + Fiyat Teyidi', 'Fiyat EMA50\'nin de üstünde — kesişim fiyatla destekleniyor.');
+        vote(2, 'Golden Cross (Teyitli)', 'EMA50, EMA200\'ü yukarı kesti, üstünde kaldı VE fiyat EMA50 üstünde — geri testte en güçlü sinyal.');
       }
     })();
     // KURAL 15: Higher Lows — son 30 kapanmış bar, 10'ar barlık 3 pencerenin dipleri
