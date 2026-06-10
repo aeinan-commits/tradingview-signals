@@ -909,7 +909,7 @@ async function quickScoreOzel(ticker, headers, tf) {
     (function () {
       if (n < 7 || ema200series[n - 2] === null) return;
       let crossedAndHeld = false;
-      for (let i = n - 6; i <= n - 2; i++) {
+      for (let i = n - 5; i <= n - 2; i++) {
         if (i < 1 || ema200series[i] === null || ema200series[i - 1] === null) continue;
         const justCrossed = closes[i - 1] <= ema200series[i - 1] && closes[i] > ema200series[i];
         if (!justCrossed) continue;
@@ -1213,7 +1213,7 @@ async function quickScoreOzel(ticker, headers, tf) {
       if (e50[n - 2] === null || e200[n - 2] === null) return;
       // Son 5 kapanmış bar: n-6 .. n-2
       let crossedAndHeld = false;
-      for (let i = n - 6; i <= n - 2; i++) {
+      for (let i = n - 5; i <= n - 2; i++) {
         if (i < 1 || e50[i] === null || e200[i] === null || e50[i - 1] === null || e200[i - 1] === null) continue;
         const justCrossed = e50[i - 1] <= e200[i - 1] && e50[i] > e200[i];
         if (!justCrossed) continue;
