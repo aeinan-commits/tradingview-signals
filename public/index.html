@@ -1101,11 +1101,27 @@ async function runScanOzel(){
     var d=await res.json();
     if(!d.results){ box.innerHTML='<div class="error">Tarama başarısız.</div>'; btn.disabled=false; btn.textContent='🧪 BIST100 Tara Özel'; return; }
     saveOzelScanHistory(d.results);
-    var html='<div style="background:#1a1a1a;border-radius:16px;padding:20px"><div style="color:#a5d6a7;font-size:1.1rem;font-weight:bold;margin-bottom:16px">🧪 Özel Tarama Sonuçları ('+d.count+' hisse) — puana göre sıralı</div><div style="display:flex;flex-wrap:wrap;gap:8px">';
-    d.results.forEach(function(r){
+    // Endeksleri ayır
+    var endeksler = d.results.filter(function(r){ return r.ticker==='XU100' || r.ticker==='XU030'; });
+    var hisseler = d.results.filter(function(r){ return r.ticker!=='XU100' && r.ticker!=='XU030'; });
+
+    function ozelKart(r){
       var lv = ozelLevel(r.total);
-      html+='<div onclick="document.getElementById(\'tiOzel\').value=\''+r.ticker+'\';runOzel()" style="cursor:pointer;background:'+lv.bg+';border:1px solid #2a2a2a;border-left:4px solid '+lv.border+';border-radius:8px;padding:8px 12px;min-width:130px" onmouseover="this.style.filter=\'brightness(1.4)\'" onmouseout="this.style.filter=\'none\'"><div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.9rem">'+r.ticker+'</span><span style="color:'+lv.color+';font-weight:bold;font-size:.85rem">'+r.total+' p</span></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px"><span style="color:#888;font-size:.75rem">₺'+r.price+'</span><span style="color:'+lv.color+';font-size:.7rem;font-weight:600">'+lv.label+'</span></div></div>';
-    });
+      return '<div onclick="document.getElementById(\'tiOzel\').value=\''+r.ticker+'\';runOzel()" style="cursor:pointer;background:'+lv.bg+';border:1px solid #2a2a2a;border-left:4px solid '+lv.border+';border-radius:8px;padding:8px 12px;min-width:130px" onmouseover="this.style.filter=\'brightness(1.4)\'" onmouseout="this.style.filter=\'none\'"><div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.9rem">'+r.ticker+'</span><span style="color:'+lv.color+';font-weight:bold;font-size:.85rem">'+r.total+' p</span></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px"><span style="color:#888;font-size:.75rem">₺'+r.price+'</span><span style="color:'+lv.color+';font-size:.7rem;font-weight:600">'+lv.label+'</span></div></div>';
+    }
+
+    var html='<div style="background:#1a1a1a;border-radius:16px;padding:20px">';
+    // Endeksler bölümü (üstte, ayrı)
+    if(endeksler.length>0){
+      html+='<div style="color:#f0b90b;font-size:.95rem;font-weight:bold;margin-bottom:10px">📊 Endeksler</div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid #2a2a2a">';
+      endeksler.forEach(function(r){ html+=ozelKart(r); });
+      html+='</div>';
+    }
+    // Hisseler bölümü
+    html+='<div style="color:#a5d6a7;font-size:1.1rem;font-weight:bold;margin-bottom:16px">🧪 Özel Tarama Sonuçları ('+hisseler.length+' hisse) — puana göre sıralı</div><div style="display:flex;flex-wrap:wrap;gap:8px">';
+    hisseler.forEach(function(r){ html+=ozelKart(r); });
+    html+='</div><div class="vol-desc" style="margin-top:8px">Deneysel özel tarama. Yatırım tavsiyesi değildir.</div></div>';
+    box.innerHTML=html;
     html+='</div><div class="vol-desc" style="margin-top:8px">Deneysel özel tarama. Yatırım tavsiyesi değildir.</div></div>';
     box.innerHTML=html;
   }catch(e){ box.innerHTML='<div class="error">❌ Hata: '+e.message+'</div>'; }
