@@ -1042,6 +1042,15 @@ function ozelVerdictEmoji(v){ return {'GÜÇLÜ AL':'🟢🟢','AL':'🟢','NÖT
 
 function ozelCard(d){
   var lv = ozelLevel(d.total);
+  var acikBarNot = '';
+  if(typeof d.acikBarPct === 'number' && d.acikBarPct !== 0){
+    var up = d.acikBarPct > 0;
+    var renk = up ? '#66bb6a' : '#ff7043';
+    var ok = up ? '▲' : '▼';
+    acikBarNot = '<div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:.78rem;color:#aaa;text-align:center">'+
+      'Puan son <b>kapanmış</b> bara göre. Açık bar şu an <span style="color:'+renk+';font-weight:bold">'+ok+' %'+Math.abs(d.acikBarPct).toFixed(2)+'</span>'+
+      (up ? '' : ' — düşüşte, teyit için kapanış beklenebilir')+'</div>';
+  }
   var rows;
   if(!d.breakdown || d.breakdown.length===0){
     rows='<div class="vol-desc" style="padding:10px">Hiçbir kalemden puan oluşmadı.</div>';
@@ -1060,6 +1069,7 @@ function ozelCard(d){
     '<div style="color:#aaa;font-size:1.1rem;margin-bottom:4px">₺'+d.price+'</div>'+
     '<div style="font-size:2.6rem;font-weight:bold;color:'+lv.color+'">'+d.total+' puan</div>'+
     '<div style="color:'+lv.color+';font-size:.9rem;font-weight:600;margin-top:4px">'+lv.label+'</div></div>'+
+    acikBarNot+
     '<div style="color:#888;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Puan Dökümü</div>'+
     rows+
     '<div class="vol-desc" style="margin-top:14px">Bu deneysel özel analiz sistemidir. Yatırım tavsiyesi değildir.</div>'+
@@ -1139,24 +1149,42 @@ function showOzelScanHistory(){
     box.innerHTML='<div style="background:#1a1a1a;border-radius:12px;padding:24px;text-align:center;color:#888">Henüz kayıtlı özel tarama yok. "BIST100 Tara Özel" çalıştırdıkça en yüksek puanlılar burada birikecek.</div>';
     return;
   }
+  // Her hissenin EN GÜNCEL kayıtlı fiyatını bul (en yeni tarama = hist[0] tarafında)
+  var sonFiyat={};
+  for(var h=0; h<hist.length; h++){
+    hist[h].picks.forEach(function(p){
+      if(sonFiyat[p.ticker]===undefined) sonFiyat[p.ticker]=parseFloat(p.price); // ilk görülen = en güncel
+    });
+  }
   var html='<div style="background:#1a1a1a;border-radius:16px;padding:20px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px"><div style="color:#a5d6a7;font-size:1.1rem;font-weight:bold">🗂️ Özel Tarama Geçmişi (son '+hist.length+')</div><button onclick="clearOzelScanHistory()" style="background:#0f0f0f;color:#888;border:1px solid #333;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:.75rem">Geçmişi Temizle</button></div>';
-  hist.forEach(function(e){
+  hist.forEach(function(e,ei){
     html+='<div style="margin-bottom:16px;border-bottom:1px solid #2a2a2a;padding-bottom:12px">'+
       '<div style="color:#888;font-size:.78rem;margin-bottom:8px">'+e.stamp+' &nbsp;•&nbsp; '+(tfLabels[e.tf]||e.tf)+' &nbsp;•&nbsp; '+e.picks.length+' hisse</div>'+
       '<div style="display:flex;flex-wrap:wrap;gap:8px">';
     e.picks.forEach(function(p,idx){
-      var c = p.total>0 ? '#a5d6a7' : '#888';
-      html+='<div onclick="document.getElementById(\'tiOzel\').value=\''+p.ticker+'\';runOzel()" style="cursor:pointer;background:#0f0f0f;border:1px solid #2a2a2a;border-left:3px solid '+c+';border-radius:8px;padding:8px 12px;min-width:120px" onmouseover="this.style.background=\'#252525\'" onmouseout="this.style.background=\'#0f0f0f\'">'+
-        '<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.88rem">'+(idx+1)+'. '+p.ticker+'</span><span style="color:'+c+';font-weight:bold;font-size:.85rem">'+p.total+'p</span></div>'+
+      var lv = ozelLevel(p.total);
+      // Performans: bu kayıttan SONRAKİ (daha güncel) bir taramada bu hisse varsa fiyat farkı
+      var perfHtml='';
+      if(ei>0){ // en güncel tarama (ei=0) için "sonrası" yok
+        var guncel=sonFiyat[p.ticker];
+        var eski=parseFloat(p.price);
+        if(guncel!==undefined && eski>0 && guncel!==eski){
+          var chg=((guncel-eski)/eski)*100;
+          var up=chg>=0;
+          perfHtml='<div style="font-size:.7rem;font-weight:600;margin-top:3px;color:'+(up?'#66bb6a':'#ff7043')+'">'+(up?'▲':'▼')+' %'+Math.abs(chg).toFixed(1)+' (o gün→bugün)</div>';
+        }
+      }
+      html+='<div onclick="document.getElementById(\'tiOzel\').value=\''+p.ticker+'\';runOzel()" style="cursor:pointer;background:'+lv.bg+';border:1px solid #2a2a2a;border-left:3px solid '+lv.border+';border-radius:8px;padding:8px 12px;min-width:120px" onmouseover="this.style.filter=\'brightness(1.3)\'" onmouseout="this.style.filter=\'none\'">'+
+        '<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.88rem">'+(idx+1)+'. '+p.ticker+'</span><span style="color:'+lv.color+';font-weight:bold;font-size:.85rem">'+p.total+'p</span></div>'+
         '<div style="color:#888;font-size:.72rem;margin-top:2px">₺'+p.price+'</div>'+
+        perfHtml+
       '</div>';
     });
     html+='</div></div>';
   });
-  html+='<div class="vol-desc" style="margin-top:4px">Her özel tarama sonrası en yüksek 5 hisse (beraberlik dahil) otomatik kaydedilir. Sadece bu tarayıcıda saklanır.</div></div>';
+  html+='<div class="vol-desc" style="margin-top:4px">Performans: bir hisse sonraki taramalarda tekrar görüldüyse, o günkü fiyatından bugüne değişimi gösterilir. Sadece bu tarayıcıda saklanır.</div></div>';
   box.innerHTML=html;
 }
-
 function clearOzelScanHistory(){
   if(confirm('Tüm özel tarama geçmişi silinecek. Emin misiniz?')){
     try{ localStorage.removeItem('bistOzelScanHist'); }catch(e){}
