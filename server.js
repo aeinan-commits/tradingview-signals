@@ -886,6 +886,7 @@ async function quickScoreOzel(ticker, headers, tf) {
     'Parabolik SAR',
     'Momentum Yükselişi', 'Momentum > 15B Ort.',
     'RSI 30 Altından Dönüş', 'RSI 30 Geçişi', 'RSI > 9B Ort. (dönüş)', 'RSI 70 Kırılımı', 'RSI > 9B Ort. (güç)',
+    'CCI -100 Altından Dönüş', 'CCI -100 Geçişi', 'CCI > 14B Ort. (dönüş)', 'CCI +100 Kırılımı', 'CCI > 14B Ort. (güç)',
     'MACD AL Kesişimi', 'MACD Sıfır Üstü', 'MACD Histogram Artışı',
     'ADX > 30 (Yukarı Trend)', '+DI Yükselişi', '+DI/-DI Kesişimi', '+DI, -DI %20 Üstü',
     'Direnç Kırılımı',
