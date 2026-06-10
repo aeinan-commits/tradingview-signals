@@ -879,7 +879,28 @@ async function quickScoreOzel(ticker, headers, tf) {
     const price = closes[closes.length - 1];
     let total = 0, maxW = 0;
     const breakdown = [];
-    function vote(points, name, detail) { total += points; maxW += Math.abs(points); if (name) breakdown.push({ name, points, detail: detail || '' }); }
+    // ===== GERİ TEST SONUCU: kaybettiren kurallar devre dışı =====
+  // Geri açmak istediğin kuralı bu listeden çıkarman yeterli.
+  const DEVRE_DISI = [
+    'Hacimli Yükseliş',
+    'Parabolik SAR',
+    'Momentum Yükselişi', 'Momentum > 15B Ort.',
+    'RSI 30 Altından Dönüş', 'RSI 30 Geçişi', 'RSI > 9B Ort. (dönüş)', 'RSI 70 Kırılımı', 'RSI > 9B Ort. (güç)',
+    'CCI -100 Altından Dönüş', 'CCI -100 Geçişi', 'CCI > 14B Ort. (dönüş)', 'CCI +100 Kırılımı', 'CCI > 14B Ort. (güç)',
+    'MACD AL Kesişimi', 'MACD Sıfır Üstü', 'MACD Histogram Artışı',
+    'ADX > 30 (Yukarı Trend)', '+DI Yükselişi', '+DI/-DI Kesişimi', '+DI, -DI %20 Üstü',
+    'Direnç Kırılımı',
+    'OBV Zirve Kırılımı',
+    'Hacim Patlaması',
+    'Sıkışma Kırılımı',
+    'Pullback Sekmesi',
+    'Çoklu Kategori Teyidi'
+  ];
+  function vote(points, name, detail) {
+    if (DEVRE_DISI.indexOf(name) !== -1) return; // devre dışı kural: puana katma, listeye yazma
+    total += points;
+    breakdown.push({ name, points, detail });
+  }
 
     const n = closes.length;
     const ema200series = emaSeries(closes, 200);
