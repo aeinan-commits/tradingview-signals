@@ -1164,9 +1164,9 @@ function clearOzelScanHistory(){
   }
 }
   function ozelLevel(total){
-  if(total >= 5)   return { label:'Çok Güçlü', color:'#7b2cbf', bg:'rgba(123,44,191,0.12)', border:'#7b2cbf' };
-  if(total >= 3)   return { label:'Güçlü',     color:'#2d8a34', bg:'rgba(45,138,52,0.12)',  border:'#2d8a34' };
-  if(total >= 1.5) return { label:'Orta',      color:'#a5d6a7', bg:'rgba(165,214,167,0.10)', border:'#a5d6a7' };
+  if(total >= 3)   return { label:'Çok Güçlü', color:'#7b2cbf', bg:'rgba(123,44,191,0.12)', border:'#7b2cbf' };
+  if(total >= 1.5) return { label:'Güçlü',     color:'#2d8a34', bg:'rgba(45,138,52,0.12)',  border:'#2d8a34' };
+  if(total >= 0.5) return { label:'Orta',      color:'#a5d6a7', bg:'rgba(165,214,167,0.10)', border:'#a5d6a7' };
   return                  { label:'Zayıf',     color:'#d4a017', bg:'rgba(212,160,23,0.10)',  border:'#d4a017' };
 }
 </script>
