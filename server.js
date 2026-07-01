@@ -1504,6 +1504,18 @@ app.get('/trend-fiyat/:ticker', async (req, res) => {
     // Yıllık bileşik büyüme (eğimden): günlük b → yıllık (252 iş günü)
     const yillikBuyume = (Math.exp(b * 252) - 1) * 100;
 
+    // Grafik için: fiyat + trend çizgisi (performans için ~150 noktaya seyrelt)
+    const step = Math.max(1, Math.floor(N / 150));
+    const chartPrice = [], chartTrend = [];
+    for (let i = 0; i < N; i += step) {
+      chartPrice.push(parseFloat(closes[i].toFixed(2)));
+      chartTrend.push(parseFloat(Math.exp(a + b * i).toFixed(2)));
+    }
+    // Son nokta mutlaka dahil olsun
+    if ((N - 1) % step !== 0) {
+      chartPrice.push(parseFloat(closes[N - 1].toFixed(2)));
+      chartTrend.push(parseFloat(Math.exp(a + b * (N - 1)).toFixed(2)));
+    }
     res.json({
       ticker,
       currentPrice: parseFloat(currentPrice.toFixed(2)),
@@ -1511,12 +1523,10 @@ app.get('/trend-fiyat/:ticker', async (req, res) => {
       sapmaPct: parseFloat(sapmaPct.toFixed(1)),
       r2: parseFloat(r2.toFixed(2)),
       yillikBuyume: parseFloat(yillikBuyume.toFixed(1)),
-      barSayisi: N
+      barSayisi: N,
+      chartPrice,
+      chartTrend
     });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
 app.get('/analyze-ozel/:ticker', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
   const tf = req.query.tf || '1d';
