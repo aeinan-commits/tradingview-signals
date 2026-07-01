@@ -1370,11 +1370,16 @@ async function runScanTrend(){
       var ucuz=r.sapmaPct<0;
       var renk=ucuz?'#2d8a34':'#ff7043';
       var ok=ucuz?'▼':'▲';
-      // R² düşükse uyarı işareti
       var r2uyari = r.r2<0.6 ? ' <span title="Trend güvenilirliği düşük" style="color:#d4a017">⚠</span>' : '';
-      return '<div onclick="document.getElementById(\'tiTrend\').value=\''+r.ticker+'\';runTrend()" style="cursor:pointer;background:#0f0f0f;border:1px solid #2a2a2a;border-left:4px solid '+renk+';border-radius:8px;padding:8px 12px;min-width:140px" onmouseover="this.style.filter=\'brightness(1.4)\'" onmouseout="this.style.filter=\'none\'">'+
+      // Bant konumu rozeti (bandPos = kaç σ uzakta)
+      var bp = (typeof r.bandPos === 'number') ? r.bandPos : 0;
+      var bandRozet='', bandBorder=renk;
+      if(bp <= -2){ bandRozet='<span style="background:#2d8a3433;color:#66bb6a;font-size:.62rem;font-weight:bold;padding:1px 6px;border-radius:4px">ALT BANT</span>'; bandBorder='#2d8a34'; }
+      else if(bp >= 2){ bandRozet='<span style="background:#ff704333;color:#ff9800;font-size:.62rem;font-weight:bold;padding:1px 6px;border-radius:4px">ÜST BANT</span>'; bandBorder='#ff7043'; }
+      return '<div onclick="document.getElementById(\'tiTrend\').value=\''+r.ticker+'\';runTrend()" style="cursor:pointer;background:#0f0f0f;border:1px solid #2a2a2a;border-left:4px solid '+bandBorder+';border-radius:8px;padding:8px 12px;min-width:150px" onmouseover="this.style.filter=\'brightness(1.4)\'" onmouseout="this.style.filter=\'none\'">'+
         '<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.9rem">'+r.ticker+sektorYildiz(r.ticker)+r2uyari+'</span><span style="color:'+renk+';font-weight:bold;font-size:.85rem">'+ok+'%'+Math.abs(r.sapmaPct).toFixed(0)+'</span></div>'+
-        '<div style="display:flex;justify-content:space-between;margin-top:2px"><span style="color:#888;font-size:.72rem">₺'+r.currentPrice+'</span><span style="color:#5c9ce6;font-size:.72rem">Trend ₺'+r.trendPrice+'</span></div>'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px"><span style="color:#888;font-size:.72rem">₺'+r.currentPrice+'</span><span style="color:#5c9ce6;font-size:.72rem">'+(bp>=0?'+':'')+bp.toFixed(1)+'σ</span></div>'+
+        (bandRozet ? '<div style="margin-top:4px">'+bandRozet+'</div>' : '')+
       '</div>';
     }
 
