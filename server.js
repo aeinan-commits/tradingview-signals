@@ -1531,6 +1531,51 @@ app.get('/trend-fiyat/:ticker', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+// Tek hisse için trend hesabı (tarama için, sade)
+async function quickTrend(ticker, headers) {
+  try {
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.IS?interval=1d&range=5y&events=div%2Csplit`, { headers });
+    const data = await r.json();
+    if (!data.chart || !data.chart.result || !data.chart.result[0]) return null;
+    const q = data.chart.result[0].indicators.quote[0];
+    const closes = q.close.filter(p => p !== null && p > 0);
+    const N = closes.length;
+    if (N < 250) return null;
+    const y = closes.map(p => Math.log(p));
+    const n = y.length;
+    let sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (let i = 0; i < n; i++) { sx += i; sy += y[i]; sxx += i * i; sxy += i * y[i]; }
+    const b = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+    const a = (sy - b * sx) / n;
+    const meanY = sy / n;
+    let ssTot = 0, ssRes = 0;
+    for (let i = 0; i < n; i++) { const yhat = a + b * i; ssRes += Math.pow(y[i] - yhat, 2); ssTot += Math.pow(y[i] - meanY, 2); }
+    const r2 = ssTot === 0 ? 0 : 1 - ssRes / ssTot;
+    const trendPrice = Math.exp(a + b * (n - 1));
+    const currentPrice = closes[N - 1];
+    const sapmaPct = ((currentPrice - trendPrice) / trendPrice) * 100;
+    return {
+      ticker,
+      currentPrice: parseFloat(currentPrice.toFixed(2)),
+      trendPrice: parseFloat(trendPrice.toFixed(2)),
+      sapmaPct: parseFloat(sapmaPct.toFixed(1)),
+      r2: parseFloat(r2.toFixed(2))
+    };
+  } catch (e) { return null; }
+}
+
+app.get('/scan-trend', async (req, res) => {
+  const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
+  const results = [];
+  for (let i = 0; i < BIST100.length; i += 5) {
+    const chunk = BIST100.slice(i, i + 5);
+    const part = await Promise.all(chunk.map(t => quickTrend(t, headers)));
+    part.forEach(p => { if (p) results.push(p); });
+  }
+  // En ucuzdan (en negatif sapma) en pahalıya sırala
+  results.sort((a, b) => a.sapmaPct - b.sapmaPct);
+  res.json({ count: results.length, results });
+});
 app.get('/analyze-ozel/:ticker', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
   const tf = req.query.tf || '1d';
