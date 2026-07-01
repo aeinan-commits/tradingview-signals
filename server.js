@@ -1527,6 +1527,10 @@ app.get('/trend-fiyat/:ticker', async (req, res) => {
       chartPrice,
       chartTrend
     });
+    } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 app.get('/analyze-ozel/:ticker', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
   const tf = req.query.tf || '1d';
