@@ -1225,7 +1225,41 @@ function sektorYildiz(ticker){
 }
 document.getElementById('btnTrend').addEventListener('click', runTrend);
 document.getElementById('tiTrend').addEventListener('keypress', function(e){ if(e.key==='Enter') runTrend(); });
-
+function buildTrendChart(d){
+  var price=d.chartPrice, trend=d.chartTrend;
+  if(!price || price.length<2) return '';
+  var W=900, H=320, padL=55, padR=15, padT=15, padB=25;
+  var n=price.length;
+  var allVals=price.concat(trend);
+  var minV=Math.min.apply(null,allVals), maxV=Math.max.apply(null,allVals);
+  var pad=(maxV-minV)*0.05; minV-=pad; maxV+=pad;
+  function x(i){ return padL + (i/(n-1))*(W-padL-padR); }
+  function y(v){ return padT + (1-(v-minV)/(maxV-minV))*(H-padT-padB); }
+  function pathOf(arr){
+    var dp='';
+    for(var i=0;i<arr.length;i++){ dp += (i===0?'M':'L')+x(i).toFixed(1)+' '+y(arr[i]).toFixed(1)+' '; }
+    return dp;
+  }
+  var yLabels='';
+  for(var g=0;g<=4;g++){
+    var val=minV+(maxV-minV)*(g/4); var yy=y(val);
+    yLabels+='<line x1="'+padL+'" y1="'+yy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+yy.toFixed(1)+'" stroke="#222" stroke-width="1"/>';
+    yLabels+='<text x="'+(padL-6)+'" y="'+(yy+3).toFixed(1)+'" fill="#666" font-size="10" text-anchor="end">'+val.toFixed(2)+'</text>';
+  }
+  var lastX=x(n-1), lastYp=y(price[n-1]), lastYt=y(trend[n-1]);
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">'+
+    yLabels+
+    '<path d="'+pathOf(price)+'" fill="none" stroke="#fff" stroke-width="1.6"/>'+
+    '<path d="'+pathOf(trend)+'" fill="none" stroke="#5c9ce6" stroke-width="1.8" stroke-dasharray="6 4"/>'+
+    '<circle cx="'+lastX.toFixed(1)+'" cy="'+lastYp.toFixed(1)+'" r="3.5" fill="#fff"/>'+
+    '<circle cx="'+lastX.toFixed(1)+'" cy="'+lastYt.toFixed(1)+'" r="3.5" fill="#5c9ce6"/>'+
+    '</svg>';
+  var legend='<div style="display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:.78rem">'+
+    '<span style="color:#fff">━ Gerçek Fiyat</span>'+
+    '<span style="color:#5c9ce6">┅ Trend Çizgisi (log-regresyon)</span></div>';
+  return '<div style="background:#0f0f0f;border-radius:12px;padding:16px;margin-top:16px">'+svg+legend+
+    '<div class="vol-desc" style="margin-top:8px;text-align:center">Son 5 yıl. Beyaz çizgi gerçek fiyat, mavi kesikli çizgi geçmiş büyümeye göre "olması beklenen" trend. Fiyat mavinin altındaysa trende göre ucuz, üstündeyse pahalı.</div></div>';
+}
 async function runTrend(){
   var t=document.getElementById('tiTrend').value.trim().toUpperCase();
   if(!t) return;
@@ -1265,6 +1299,8 @@ async function runTrend(){
           '<div style="color:'+r2renk+';font-size:.78rem;margin-top:6px">'+r2txt+'</div>'+
         '</div>'+
         '<div class="vol-desc">Son '+d.barSayisi+' günlük kapanış fiyatına logaritmik regresyon (üstel trend) uygulanmıştır. "Trend fiyatı", geçmiş büyüme hızının bugüne yansıtılmış değeridir — enflasyon bu büyümenin içinde zaten vardır. Bu bir <b>tahmin değil</b>, geçmiş trende göre bir referans noktasıdır. Fiyatın bu değere döneceği garanti edilemez; yatırım tavsiyesi değildir.</div>'+
+        buildTrendChart(d)+
+      '</div>';
       '</div>';
     window.scrollTo({top:0,behavior:'smooth'});
   }catch(e){ box.innerHTML='<p class="error">❌ Hata: '+e.message+'</p>'; }
