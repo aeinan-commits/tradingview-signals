@@ -1580,6 +1580,15 @@ async function quickTrend(ticker, headers) {
     let ssTot = 0, ssRes = 0;
     for (let i = 0; i < n; i++) { const yhat = a + b * i; ssRes += Math.pow(y[i] - yhat, 2); ssTot += Math.pow(y[i] - meanY, 2); }
     const r2 = ssTot === 0 ? 0 : 1 - ssRes / ssTot;
+
+    // Sapma bandı (her hisseye özel): residual std
+    let resVar = 0;
+    const rMean = 0; // regresyon residual ortalaması ~0
+    for (let i = 0; i < n; i++) { const rv = y[i] - (a + b * i); resVar += rv * rv; }
+    const resStd = Math.sqrt(resVar / n);
+    const currentResidual = y[n - 1] - (a + b * (n - 1));
+    const bandPos = resStd === 0 ? 0 : currentResidual / resStd;
+
     const trendPrice = Math.exp(a + b * (n - 1));
     const currentPrice = closes[N - 1];
     const sapmaPct = ((currentPrice - trendPrice) / trendPrice) * 100;
@@ -1588,6 +1597,7 @@ async function quickTrend(ticker, headers) {
       currentPrice: parseFloat(currentPrice.toFixed(2)),
       trendPrice: parseFloat(trendPrice.toFixed(2)),
       sapmaPct: parseFloat(sapmaPct.toFixed(1)),
+      bandPos: parseFloat(bandPos.toFixed(2)),
       r2: parseFloat(r2.toFixed(2))
     };
   } catch (e) { return null; }
