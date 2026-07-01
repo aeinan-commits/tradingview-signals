@@ -1472,22 +1472,27 @@ app.get('/trend-fiyat/:ticker', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
   try {
     const ticker = req.params.ticker.toUpperCase();
-    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.IS?interval=1d&range=5y&events=div%2Csplit`, { headers });
+    // Pencere: 5y (varsayılan), 3y, 1y
+    const rangeParam = req.query.range || '5y';
+    const rangeMap = { '5y': '5y', '3y': '3y', '1y': '1y' };
+    const range = rangeMap[rangeParam] || '5y';
+    const minBars = { '5y': 250, '3y': 150, '1y': 60 }[range] || 250;
+
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.IS?interval=1d&range=${range}&events=div%2Csplit`, { headers });
     const data = await r.json();
     if (!data.chart || !data.chart.result || !data.chart.result[0]) return res.status(500).json({ error: 'Hisse bulunamadı: ' + ticker });
     const q = data.chart.result[0].indicators.quote[0];
     const closes = q.close.filter(p => p !== null && p > 0);
     const N = closes.length;
-    if (N < 250) return res.status(500).json({ error: 'Yeterli veri yok (en az ~1 yıl gerekir).' });
+    if (N < minBars) return res.status(500).json({ error: 'Bu pencere için yeterli veri yok.' });
 
     // Logaritmik doğrusal regresyon: ln(fiyat) = a + b*t
     const y = closes.map(p => Math.log(p));
     const n = y.length;
     let sx = 0, sy = 0, sxx = 0, sxy = 0;
     for (let i = 0; i < n; i++) { sx += i; sy += y[i]; sxx += i * i; sxy += i * y[i]; }
-    const b = (n * sxy - sx * sy) / (n * sxx - sx * sx); // eğim
-    const a = (sy - b * sx) / n;                          // sabit
-    // R² hesabı
+    const b = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+    const a = (sy - b * sx) / n;
     const meanY = sy / n;
     let ssTot = 0, ssRes = 0;
     for (let i = 0; i < n; i++) {
@@ -1497,37 +1502,61 @@ app.get('/trend-fiyat/:ticker', async (req, res) => {
     }
     const r2 = ssTot === 0 ? 0 : 1 - ssRes / ssTot;
 
-    // Bugünkü trend fiyatı = regresyon çizgisinin son noktadaki değeri
+    // ===== SAPMA BANDI (her hisseye özel) =====
+    // Log-uzayında her barın trend çizgisinden sapması (residual)
+    // Bu sapmaların standart sapması = o hisseye özgü "normal dalgalanma"
+    const residuals = [];
+    for (let i = 0; i < n; i++) residuals.push(y[i] - (a + b * i));
+    const resMean = residuals.reduce((s, v) => s + v, 0) / n;
+    let resVar = 0;
+    for (let i = 0; i < n; i++) resVar += Math.pow(residuals[i] - resMean, 2);
+    const resStd = Math.sqrt(resVar / n); // log-uzayında standart sapma
+
     const trendPrice = Math.exp(a + b * (n - 1));
     const currentPrice = closes[N - 1];
     const sapmaPct = ((currentPrice - trendPrice) / trendPrice) * 100;
-    // Yıllık bileşik büyüme (eğimden): günlük b → yıllık (252 iş günü)
     const yillikBuyume = (Math.exp(b * 252) - 1) * 100;
 
-    // Grafik için: fiyat + trend çizgisi (performans için ~150 noktaya seyrelt)
+    // Bandın neresindeyiz? Güncel residual / std = kaç standart sapma uzakta
+    const currentResidual = y[n - 1] - (a + b * (n - 1));
+    const bandPos = resStd === 0 ? 0 : currentResidual / resStd; // -2 = alt bant, +2 = üst bant
+
+    // Grafik: fiyat + trend + üst/alt bant (±2 std), ~150 noktaya seyrelt
     const step = Math.max(1, Math.floor(N / 150));
-    const chartPrice = [], chartTrend = [];
+    const chartPrice = [], chartTrend = [], chartUpper = [], chartLower = [];
     for (let i = 0; i < N; i += step) {
+      const tv = a + b * i;
       chartPrice.push(parseFloat(closes[i].toFixed(2)));
-      chartTrend.push(parseFloat(Math.exp(a + b * i).toFixed(2)));
+      chartTrend.push(parseFloat(Math.exp(tv).toFixed(2)));
+      chartUpper.push(parseFloat(Math.exp(tv + 2 * resStd).toFixed(2)));
+      chartLower.push(parseFloat(Math.exp(tv - 2 * resStd).toFixed(2)));
     }
-    // Son nokta mutlaka dahil olsun
     if ((N - 1) % step !== 0) {
+      const tv = a + b * (N - 1);
       chartPrice.push(parseFloat(closes[N - 1].toFixed(2)));
-      chartTrend.push(parseFloat(Math.exp(a + b * (N - 1)).toFixed(2)));
+      chartTrend.push(parseFloat(Math.exp(tv).toFixed(2)));
+      chartUpper.push(parseFloat(Math.exp(tv + 2 * resStd).toFixed(2)));
+      chartLower.push(parseFloat(Math.exp(tv - 2 * resStd).toFixed(2)));
     }
+
     res.json({
       ticker,
+      range,
       currentPrice: parseFloat(currentPrice.toFixed(2)),
       trendPrice: parseFloat(trendPrice.toFixed(2)),
+      upperBand: parseFloat(Math.exp(a + b * (n - 1) + 2 * resStd).toFixed(2)),
+      lowerBand: parseFloat(Math.exp(a + b * (n - 1) - 2 * resStd).toFixed(2)),
       sapmaPct: parseFloat(sapmaPct.toFixed(1)),
+      bandPos: parseFloat(bandPos.toFixed(2)),
       r2: parseFloat(r2.toFixed(2)),
       yillikBuyume: parseFloat(yillikBuyume.toFixed(1)),
       barSayisi: N,
       chartPrice,
-      chartTrend
+      chartTrend,
+      chartUpper,
+      chartLower
     });
-    } catch (e) {
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
