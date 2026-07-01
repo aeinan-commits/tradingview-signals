@@ -132,6 +132,7 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 <div id="result"></div>
 <script>
 var lastData=null, selectedPeriod='d1', selectedTF='1d', currentTicker='';
+var selectedTrendRange='5y';  
 
 // ===== FAVORİ LİSTESİ =====
 function getFavs(){ try{ return JSON.parse(localStorage.getItem('bistFavs')||'[]'); }catch(e){ return []; } }
@@ -1276,6 +1277,11 @@ function buildTrendChart(d){
   return '<div style="background:#0f0f0f;border-radius:12px;padding:16px;margin-top:16px">'+svg+legend+
     '<div class="vol-desc" style="margin-top:8px;text-align:center">Beyaz çizgi gerçek fiyat, mavi kesikli çizgi trend. Gölgeli alan bu hisseye özel sapma bandı (±2 standart sapma) — fiyat alt banda değince o hisse için tarihsel olarak uç ucuzluk, üst banda değince uç pahalılık demektir.</div></div>';
 }
+function setTrendRange(rng){
+  selectedTrendRange=rng;
+  var t=document.getElementById('tiTrend').value.trim().toUpperCase();
+  if(t) runTrend();
+}
 async function runTrend(){
   var t=document.getElementById('tiTrend').value.trim().toUpperCase();
   if(!t) return;
@@ -1283,7 +1289,7 @@ async function runTrend(){
   box.style.display='block';
   box.innerHTML='<p class="loading">⏳ Trend fiyatı hesaplanıyor...</p>';
   try{
-    var res=await fetch('/trend-fiyat/'+t);
+    var res=await fetch('/trend-fiyat/'+t+'?range='+selectedTrendRange);
     var d=await res.json();
     if(d.error){ box.innerHTML='<p class="error">❌ '+d.error+'</p>'; return; }
 
@@ -1298,23 +1304,48 @@ async function runTrend(){
     else if(d.r2 >= 0.6){ r2txt='Orta — trend var ama fiyat çizgiden belirgin sapıyor.'; r2renk='#d4a017'; }
     else { r2txt='Düşük — fiyat trend çizgisine az uyuyor, bu referans zayıf.'; r2renk='#ff7043'; }
 
+    // Bant konumu yorumu (bandPos = kaç standart sapma uzakta)
+    var bp = d.bandPos;
+    var bandTxt, bandRenk;
+    if(bp <= -2){ bandTxt='Fiyat ALT BANDIN altında/dibinde — bu hisse için tarihsel olarak uç ucuzluk bölgesi.'; bandRenk='#2d8a34'; }
+    else if(bp <= -1){ bandTxt='Fiyat alt banda yakın — ortalamanın belirgin altında, ucuzluk bölgesine yaklaşıyor.'; bandRenk='#66bb6a'; }
+    else if(bp < 1){ bandTxt='Fiyat bandın orta bölgesinde — trend çizgisine yakın, ne uç ucuz ne uç pahalı.'; bandRenk='#d4a017'; }
+    else if(bp < 2){ bandTxt='Fiyat üst banda yakın — ortalamanın belirgin üstünde, pahalılık bölgesine yaklaşıyor.'; bandRenk='#ff9800'; }
+    else { bandTxt='Fiyat ÜST BANDIN üstünde — bu hisse için tarihsel olarak uç pahalılık bölgesi.'; bandRenk='#ff7043'; }
+
+    // Pencere seçici butonları
+    var ranges=[['5y','5 Yıl'],['3y','3 Yıl'],['1y','1 Yıl']];
+    var rangeBtns=ranges.map(function(rr){
+      var aktif = d.range===rr[0];
+      return '<button onclick="setTrendRange(\''+rr[0]+'\')" style="padding:6px 16px;border-radius:6px;cursor:pointer;font-size:.8rem;font-weight:bold;border:1px solid '+(aktif?'#5c9ce6':'#333')+';background:'+(aktif?'#5c9ce6':'#1a1a1a')+';color:'+(aktif?'#fff':'#aaa')+'">'+rr[1]+'</button>';
+    }).join('');
+
     box.innerHTML=
       '<div style="background:#1a1a1a;border-radius:16px;padding:24px;border:2px solid '+renk+'">'+
-        '<div style="text-align:center;margin-bottom:18px">'+
+        '<div style="text-align:center;margin-bottom:14px">'+
           '<div style="color:#5c9ce6;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📐 Trend Fiyatı — '+d.ticker+'</div>'+
+          '<div style="display:flex;gap:8px;justify-content:center;margin-bottom:14px">'+rangeBtns+'</div>'+
           '<div style="font-size:2.4rem;font-weight:bold;color:'+renk+'">'+ok+' %'+Math.abs(d.sapmaPct).toFixed(1)+'</div>'+
           '<div style="color:'+renk+';font-size:.95rem;font-weight:600;margin-top:4px">'+durum+'</div>'+
         '</div>'+
         '<div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;text-align:center;margin-bottom:16px">'+
-          '<div style="flex:1;min-width:130px;background:#0f0f0f;border-radius:10px;padding:14px"><div style="color:#888;font-size:.75rem;font-weight:bold">GÜNCEL FİYAT</div><div style="font-size:1.4rem;font-weight:bold">₺'+d.currentPrice+'</div></div>'+
-          '<div style="flex:1;min-width:130px;background:#0f0f0f;border-radius:10px;padding:14px"><div style="color:#5c9ce6;font-size:.75rem;font-weight:bold">TREND FİYATI</div><div style="font-size:1.4rem;font-weight:bold;color:#5c9ce6">₺'+d.trendPrice+'</div></div>'+
+          '<div style="flex:1;min-width:110px;background:#0f0f0f;border-radius:10px;padding:14px"><div style="color:#888;font-size:.75rem;font-weight:bold">GÜNCEL</div><div style="font-size:1.3rem;font-weight:bold">₺'+d.currentPrice+'</div></div>'+
+          '<div style="flex:1;min-width:110px;background:#0f0f0f;border-radius:10px;padding:14px"><div style="color:#5c9ce6;font-size:.75rem;font-weight:bold">TREND</div><div style="font-size:1.3rem;font-weight:bold;color:#5c9ce6">₺'+d.trendPrice+'</div></div>'+
+        '</div>'+
+        '<div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;text-align:center;margin-bottom:16px">'+
+          '<div style="flex:1;min-width:110px;background:#0f0f0f;border-radius:10px;padding:12px"><div style="color:#2d8a34;font-size:.72rem;font-weight:bold">ALT BANT</div><div style="font-size:1.1rem;font-weight:bold;color:#66bb6a">₺'+d.lowerBand+'</div></div>'+
+          '<div style="flex:1;min-width:110px;background:#0f0f0f;border-radius:10px;padding:12px"><div style="color:#ff7043;font-size:.72rem;font-weight:bold">ÜST BANT</div><div style="font-size:1.1rem;font-weight:bold;color:#ff9800">₺'+d.upperBand+'</div></div>'+
+        '</div>'+
+        '<div style="background:'+bandRenk+'15;border-radius:10px;padding:12px 14px;margin-bottom:12px;border-left:3px solid '+bandRenk+'">'+
+          '<div style="color:'+bandRenk+';font-size:.85rem;font-weight:bold;margin-bottom:2px">📍 Bant Konumu ('+(bp>=0?'+':'')+bp.toFixed(1)+'σ)</div>'+
+          '<div style="color:#bbb;font-size:.82rem;line-height:1.4">'+bandTxt+'</div>'+
         '</div>'+
         '<div style="background:#0f0f0f;border-radius:10px;padding:14px;margin-bottom:12px">'+
-          '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222"><span style="color:#888;font-size:.85rem">5 yıllık ortalama yıllık büyüme</span><span style="font-weight:bold">%'+d.yillikBuyume+'</span></div>'+
+          '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #222"><span style="color:#888;font-size:.85rem">Ortalama yıllık büyüme</span><span style="font-weight:bold">%'+d.yillikBuyume+'</span></div>'+
           '<div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:#888;font-size:.85rem">Trend güvenilirliği (R²)</span><span style="font-weight:bold;color:'+r2renk+'">'+d.r2+'</span></div>'+
           '<div style="color:'+r2renk+';font-size:.78rem;margin-top:6px">'+r2txt+'</div>'+
         '</div>'+
-        '<div class="vol-desc">Son '+d.barSayisi+' günlük kapanış fiyatına logaritmik regresyon (üstel trend) uygulanmıştır. "Trend fiyatı", geçmiş büyüme hızının bugüne yansıtılmış değeridir — enflasyon bu büyümenin içinde zaten vardır. Bu bir <b>tahmin değil</b>, geçmiş trende göre bir referans noktasıdır. Fiyatın bu değere döneceği garanti edilemez; yatırım tavsiyesi değildir.</div>'+
+        '<div class="vol-desc">Son '+d.barSayisi+' günlük kapanışa logaritmik regresyon uygulanmıştır. Sapma bandı (±2σ) <b>bu hisseye özeldir</b> — fiyatın kendi trend çizgisinden geçmişteki dalgalanmasına göre hesaplanır, bu yüzden hisseler arası adil kıyas sağlar. Bu bir <b>tahmin değil</b>, referanstır. Yatırım tavsiyesi değildir.</div>'+
         buildTrendChart(d)+
       '</div>';
     window.scrollTo({top:0,behavior:'smooth'});
