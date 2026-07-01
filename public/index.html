@@ -1227,11 +1227,13 @@ function sektorYildiz(ticker){
 document.getElementById('btnTrend').addEventListener('click', runTrend);
 document.getElementById('tiTrend').addEventListener('keypress', function(e){ if(e.key==='Enter') runTrend(); });
 function buildTrendChart(d){
-  var price=d.chartPrice, trend=d.chartTrend;
+  var price=d.chartPrice, trend=d.chartTrend, upper=d.chartUpper, lower=d.chartLower;
   if(!price || price.length<2) return '';
   var W=900, H=320, padL=55, padR=15, padT=15, padB=25;
   var n=price.length;
   var allVals=price.concat(trend);
+  if(upper) allVals=allVals.concat(upper);
+  if(lower) allVals=allVals.concat(lower);
   var minV=Math.min.apply(null,allVals), maxV=Math.max.apply(null,allVals);
   var pad=(maxV-minV)*0.05; minV-=pad; maxV+=pad;
   function x(i){ return padL + (i/(n-1))*(W-padL-padR); }
@@ -1247,19 +1249,32 @@ function buildTrendChart(d){
     yLabels+='<line x1="'+padL+'" y1="'+yy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+yy.toFixed(1)+'" stroke="#222" stroke-width="1"/>';
     yLabels+='<text x="'+(padL-6)+'" y="'+(yy+3).toFixed(1)+'" fill="#666" font-size="10" text-anchor="end">'+val.toFixed(2)+'</text>';
   }
+  // Bant dolgusu (üst ve alt bant arası gölge)
+  var bandFill='';
+  if(upper && lower){
+    var areaPath='';
+    for(var i=0;i<n;i++){ areaPath += (i===0?'M':'L')+x(i).toFixed(1)+' '+y(upper[i]).toFixed(1)+' '; }
+    for(var i=n-1;i>=0;i--){ areaPath += 'L'+x(i).toFixed(1)+' '+y(lower[i]).toFixed(1)+' '; }
+    areaPath+='Z';
+    bandFill='<path d="'+areaPath+'" fill="#5c9ce6" opacity="0.08"/>';
+  }
+  var bandLines='';
+  if(upper) bandLines+='<path d="'+pathOf(upper)+'" fill="none" stroke="#5c9ce6" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>';
+  if(lower) bandLines+='<path d="'+pathOf(lower)+'" fill="none" stroke="#5c9ce6" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>';
   var lastX=x(n-1), lastYp=y(price[n-1]), lastYt=y(trend[n-1]);
   var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">'+
-    yLabels+
-    '<path d="'+pathOf(price)+'" fill="none" stroke="#fff" stroke-width="1.6"/>'+
+    yLabels+bandFill+bandLines+
     '<path d="'+pathOf(trend)+'" fill="none" stroke="#5c9ce6" stroke-width="1.8" stroke-dasharray="6 4"/>'+
+    '<path d="'+pathOf(price)+'" fill="none" stroke="#fff" stroke-width="1.6"/>'+
     '<circle cx="'+lastX.toFixed(1)+'" cy="'+lastYp.toFixed(1)+'" r="3.5" fill="#fff"/>'+
     '<circle cx="'+lastX.toFixed(1)+'" cy="'+lastYt.toFixed(1)+'" r="3.5" fill="#5c9ce6"/>'+
     '</svg>';
-  var legend='<div style="display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:.78rem">'+
+  var legend='<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:10px;font-size:.78rem">'+
     '<span style="color:#fff">━ Gerçek Fiyat</span>'+
-    '<span style="color:#5c9ce6">┅ Trend Çizgisi (log-regresyon)</span></div>';
+    '<span style="color:#5c9ce6">┅ Trend Çizgisi</span>'+
+    '<span style="color:#5c9ce6;opacity:.6">┈ Sapma Bandı (±2σ)</span></div>';
   return '<div style="background:#0f0f0f;border-radius:12px;padding:16px;margin-top:16px">'+svg+legend+
-    '<div class="vol-desc" style="margin-top:8px;text-align:center">Son 5 yıl. Beyaz çizgi gerçek fiyat, mavi kesikli çizgi geçmiş büyümeye göre "olması beklenen" trend. Fiyat mavinin altındaysa trende göre ucuz, üstündeyse pahalı.</div></div>';
+    '<div class="vol-desc" style="margin-top:8px;text-align:center">Beyaz çizgi gerçek fiyat, mavi kesikli çizgi trend. Gölgeli alan bu hisseye özel sapma bandı (±2 standart sapma) — fiyat alt banda değince o hisse için tarihsel olarak uç ucuzluk, üst banda değince uç pahalılık demektir.</div></div>';
 }
 async function runTrend(){
   var t=document.getElementById('tiTrend').value.trim().toUpperCase();
