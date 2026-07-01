@@ -1302,8 +1302,53 @@ async function runTrend(){
         buildTrendChart(d)+
       '</div>';
       '</div>';
+    <div style="text-align:center;margin-bottom:20px">
+<button id="scanTrendBtn" style="padding:10px 24px;background:#5c9ce6;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem">📐 BIST100 Trend Tara (ucuzdan pahalıya)</button>
+</div>
     window.scrollTo({top:0,behavior:'smooth'});
   }catch(e){ box.innerHTML='<p class="error">❌ Hata: '+e.message+'</p>'; }
+}
+  document.getElementById('scanTrendBtn').addEventListener('click', runScanTrend);
+async function runScanTrend(){
+  var btn=document.getElementById('scanTrendBtn');
+  var box=document.getElementById('scanResult');
+  btn.disabled=true; btn.textContent='⏳ Taranıyor... (1-2 dk)';
+  box.style.display='block';
+  box.innerHTML='<div style="background:#1a1a1a;border-radius:12px;padding:30px;text-align:center;color:#aaa">⏳ BIST100 trend taraması çalışıyor (1-2 dk)...</div>';
+  try{
+    var res=await fetch('/scan-trend');
+    var d=await res.json();
+    if(!d.results){ box.innerHTML='<div class="error">Tarama başarısız.</div>'; btn.disabled=false; btn.textContent='📐 BIST100 Trend Tara (ucuzdan pahalıya)'; return; }
+    // Endeksleri ayır
+    var endeksler=d.results.filter(function(r){ return r.ticker==='XU100'||r.ticker==='XU030'; });
+    var hisseler=d.results.filter(function(r){ return r.ticker!=='XU100'&&r.ticker!=='XU030'; });
+
+    function trendKart(r){
+      var ucuz=r.sapmaPct<0;
+      var renk=ucuz?'#2d8a34':'#ff7043';
+      var ok=ucuz?'▼':'▲';
+      // R² düşükse uyarı işareti
+      var r2uyari = r.r2<0.6 ? ' <span title="Trend güvenilirliği düşük" style="color:#d4a017">⚠</span>' : '';
+      return '<div onclick="document.getElementById(\'tiTrend\').value=\''+r.ticker+'\';runTrend()" style="cursor:pointer;background:#0f0f0f;border:1px solid #2a2a2a;border-left:4px solid '+renk+';border-radius:8px;padding:8px 12px;min-width:140px" onmouseover="this.style.filter=\'brightness(1.4)\'" onmouseout="this.style.filter=\'none\'">'+
+        '<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.9rem">'+r.ticker+sektorYildiz(r.ticker)+r2uyari+'</span><span style="color:'+renk+';font-weight:bold;font-size:.85rem">'+ok+'%'+Math.abs(r.sapmaPct).toFixed(0)+'</span></div>'+
+        '<div style="display:flex;justify-content:space-between;margin-top:2px"><span style="color:#888;font-size:.72rem">₺'+r.currentPrice+'</span><span style="color:#5c9ce6;font-size:.72rem">Trend ₺'+r.trendPrice+'</span></div>'+
+      '</div>';
+    }
+
+    var html='<div style="background:#1a1a1a;border-radius:16px;padding:20px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px"><div style="color:#5c9ce6;font-size:1.1rem;font-weight:bold">📐 Trend Taraması — Ucuzdan Pahalıya</div><div style="color:#666;font-size:.8rem">'+hisseler.length+' hisse • '+new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})+'</div></div>'+
+      '<div style="color:#888;font-size:.72rem;margin-bottom:16px">Sol yeşil = trend fiyatının altında (ucuz), kırmızı = üstünde (pahalı). ⚠ = trend güvenilirliği düşük (R²<0.6), bu sıralamaya temkinli yaklaşın.</div>';
+    if(endeksler.length>0){
+      html+='<div style="color:#f0b90b;font-size:.9rem;font-weight:bold;margin-bottom:8px">📊 Endeksler</div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid #2a2a2a">';
+      endeksler.forEach(function(r){ html+=trendKart(r); });
+      html+='</div>';
+    }
+    html+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
+    hisseler.forEach(function(r){ html+=trendKart(r); });
+    html+='</div><div class="vol-desc" style="margin-top:12px">"Ucuz", geçmiş 5 yıllık büyüme trendine göredir — bir tahmin değil, referanstır. Trendin altında olması, o hissenin iyi fırsat olduğunu garanti etmez (şirkette kalıcı bir bozulma da olabilir). ⚠ işaretli hisselerde fiyat trend çizgisine az uyuyor, sapma anlamsız olabilir. Yatırım tavsiyesi değildir.</div></div>';
+    box.innerHTML=html;
+  }catch(e){ box.innerHTML='<div class="error">❌ Hata: '+e.message+'</div>'; }
+  btn.disabled=false; btn.textContent='📐 BIST100 Trend Tara (ucuzdan pahalıya)';
 }
 </script>
   <div style="max-width:900px;margin:30px auto;padding:0 16px">
