@@ -116,6 +116,7 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 <div style="text-align:center;margin-bottom:20px">
 <button id="scanBtn" style="padding:10px 24px;background:#9c27b0;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem">📊 BIST100 Tara</button>
 <button id="scanBtnOzel" style="padding:10px 24px;background:#a5d6a7;color:#1a1a1a;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem;margin-left:8px">🧪 BIST100 Tara Özel</button><button id="scanHistBtn" onclick="showOzelScanHistory()" style="padding:10px 24px;background:#1a1a1a;color:#a5d6a7;border:1px solid #a5d6a7;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem;margin-left:8px">🗂️ Tarama Geçmişi</button>
+<button id="scanTrendBtn" style="padding:10px 24px;background:#5c9ce6;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem;margin-left:8px">📐 BIST100 Trend Tara</button>
 </div>
 <div id="scanResult" style="display:none;margin-bottom:24px"></div>
 <div class="tf-bar">
@@ -1301,10 +1302,6 @@ async function runTrend(){
         '<div class="vol-desc">Son '+d.barSayisi+' günlük kapanış fiyatına logaritmik regresyon (üstel trend) uygulanmıştır. "Trend fiyatı", geçmiş büyüme hızının bugüne yansıtılmış değeridir — enflasyon bu büyümenin içinde zaten vardır. Bu bir <b>tahmin değil</b>, geçmiş trende göre bir referans noktasıdır. Fiyatın bu değere döneceği garanti edilemez; yatırım tavsiyesi değildir.</div>'+
         buildTrendChart(d)+
       '</div>';
-      '</div>';
-    <div style="text-align:center;margin-bottom:20px">
-<button id="scanTrendBtn" style="padding:10px 24px;background:#5c9ce6;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem">📐 BIST100 Trend Tara (ucuzdan pahalıya)</button>
-</div>
     window.scrollTo({top:0,behavior:'smooth'});
   }catch(e){ box.innerHTML='<p class="error">❌ Hata: '+e.message+'</p>'; }
 }
