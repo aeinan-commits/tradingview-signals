@@ -1221,6 +1221,7 @@ async function runViop30(){
             var rsiDurum = d.rsiVal>=50 && d.rsiVal<70;
             html += satir('RSI(14) sağlıklı bölgede (50-70)', rsiDurum, d.rsiVal + (d.rsiVal>=70?' (aşırı alım)':d.rsiVal<50?' (zayıf)':''));
           }
+          html += satir('Momentum desteği (2 gün yükseliş + hacim)', d.momentumDestek, d.momentumDestek?'VAR':(d.ikiGunYukselis?'kısmi':'yok'));
           html += '<div style="color:#666;font-size:.72rem;margin-top:8px;line-height:1.4">Bu göstergeler tek tek karar vermez; birlikte bir tablo çizer. En güçlü kurulum (testte): fiyat %1 üstünde + hacim yüksek + yukarı kırılım günü. Kararı siz verin.</div>';
           html += '</div>';
           return html;
