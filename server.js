@@ -1775,7 +1775,7 @@ app.get('/viop30-sinyal', async (req, res) => {
   }
 });
 // ===== HİSSE DİP SİNYALİ (dip-karakterli hisseler için) =====
-const DIP_HISSELERI = ['GARAN','YKBNK','ISCTR','KCHOL','THYAO','BIMAS','TCELL','SISE','EREGL','ARCLK','SASA','AKBNK','VAKBN','HALKB'];
+const DIP_HISSELERI = ['GARAN','YKBNK','ISCTR','KCHOL','THYAO','BIMAS','TCELL','SISE','EREGL','ARCLK','SASA','AKBNK','VAKBN','HALKB','MGROS','AEFES','ASELS','TAVHL','ENKAI','OYAKC','TTKOM'];
 
 app.get('/dip-sinyal/:ticker', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
