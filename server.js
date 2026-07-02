@@ -1622,7 +1622,102 @@ app.get('/analyze-ozel/:ticker', async (req, res) => {
   if (!result) return res.status(500).json({ error: 'Hisse bulunamadı veya yeterli veri yok' });
   res.json(result);
 });
+// ===== VİOP-30 (XU030) SİNYAL =====
+app.get('/viop30-sinyal', async (req, res) => {
+  const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
+  try {
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/XU030.IS?interval=1d&range=2y&events=div%2Csplit`, { headers });
+    const data = await r.json();
+    if (!data.chart || !data.chart.result || !data.chart.result[0]) return res.status(500).json({ error: 'XU030 verisi alınamadı' });
+    const q = data.chart.result[0].indicators.quote[0];
+    const closes = q.close.filter(p => p !== null && p > 0);
+    const N = closes.length;
+    if (N < 260) return res.status(500).json({ error: 'Yeterli veri yok' });
 
+    // 1 YILLIK pencere (son 250 bar) log-regresyon + bant
+    const W = 250;
+    const slice = closes.slice(N - W);
+    const y = slice.map(p => Math.log(p));
+    const n = y.length;
+    let sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (let i = 0; i < n; i++) { sx += i; sy += y[i]; sxx += i * i; sxy += i * y[i]; }
+    const b = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+    const a = (sy - b * sx) / n;
+    let rv = 0;
+    for (let i = 0; i < n; i++) { const rr = y[i] - (a + b * i); rv += rr * rr; }
+    const resStd = Math.sqrt(rv / n);
+    const currentResidual = y[n - 1] - (a + b * (n - 1));
+    const bandPos = resStd === 0 ? 0 : currentResidual / resStd;
+    const trendPrice = Math.exp(a + b * (n - 1));
+    const currentPrice = closes[N - 1];
+
+    // R²
+    const meanY = sy / n;
+    let ssTot = 0, ssRes = 0;
+    for (let i = 0; i < n; i++) { const yh = a + b * i; ssRes += Math.pow(y[i] - yh, 2); ssTot += Math.pow(y[i] - meanY, 2); }
+    const r2 = ssTot === 0 ? 0 : 1 - ssRes / ssTot;
+
+    // REJİM: fiyat 200 günlük ortalamanın üstünde mi + ortalama yükseliyor mu
+    const ma200now = closes.slice(N - 200).reduce((s, v) => s + v, 0) / 200;
+    const ma200prev = closes.slice(N - 220, N - 20).reduce((s, v) => s + v, 0) / 200;
+    const rejimYukari = currentPrice > ma200now && ma200now > ma200prev;
+
+    // SİNYAL MANTIĞI (testlerden: ≤-1.5σ tatlı nokta, ≤-2σ güçlü; ama düşüş rejiminde kapat)
+    let sinyal, aciklama, stopSeviye = null;
+    if (!rejimYukari) {
+      sinyal = 'BEKLE';
+      aciklama = 'Endeks uzun vadeli düşüş/zayıf rejimde (fiyat 200 günlük ortalamanın altında veya ortalama düşüyor). Dip sinyali bu rejimde geçmişte ters tepti (2018 örneği) — sistem kapalı, işlem önerilmez.';
+    } else if (bandPos <= -1.5) {
+      sinyal = 'AL BÖLGESİ';
+      stopSeviye = parseFloat((currentPrice * 0.95).toFixed(0)); // ~-%5 stop
+      aciklama = 'Endeks yükselen rejimde VE trendinin belirgin altında (dip bölgesi). Geçmiş testlerde bu koşulda 10 günde ortalama +%2-3 toparlanma, yılların ~%75\'inde. LONG düşünülebilir — ama sıkı stop şart.';
+    } else if (bandPos <= -1) {
+      sinyal = 'İZLE';
+      aciklama = 'Endeks yükselen rejimde, trendinin hafif altında. Henüz güçlü dip değil; -1.5σ altına inerse AL bölgesine girer. İzlemede kal.';
+    } else if (bandPos >= 1.5) {
+      sinyal = 'PAHALI';
+      aciklama = 'Endeks trendinin belirgin üstünde. Yeni long için uygun değil. NOT: Short, testlerde hiçbir dönemde çalışmadı (yükselen piyasada short kaybettirir) — short önerilmez.';
+    } else {
+      sinyal = 'NÖTR';
+      aciklama = 'Endeks trend çizgisine yakın, ne uç ucuz ne uç pahalı. Belirgin bir sinyal yok.';
+    }
+
+    // Grafik verisi (fiyat + trend + bantlar, son 250 bar)
+    const chartPrice = [], chartTrend = [], chartUpper = [], chartLower = [];
+    const step = Math.max(1, Math.floor(W / 150));
+    for (let i = 0; i < W; i += step) {
+      const tv = a + b * i;
+      chartPrice.push(parseFloat(slice[i].toFixed(0)));
+      chartTrend.push(parseFloat(Math.exp(tv).toFixed(0)));
+      chartUpper.push(parseFloat(Math.exp(tv + 2 * resStd).toFixed(0)));
+      chartLower.push(parseFloat(Math.exp(tv - 2 * resStd).toFixed(0)));
+    }
+    if ((W - 1) % step !== 0) {
+      const tv = a + b * (W - 1);
+      chartPrice.push(parseFloat(slice[W - 1].toFixed(0)));
+      chartTrend.push(parseFloat(Math.exp(tv).toFixed(0)));
+      chartUpper.push(parseFloat(Math.exp(tv + 2 * resStd).toFixed(0)));
+      chartLower.push(parseFloat(Math.exp(tv - 2 * resStd).toFixed(0)));
+    }
+
+    res.json({
+      currentPrice: parseFloat(currentPrice.toFixed(0)),
+      trendPrice: parseFloat(trendPrice.toFixed(0)),
+      upperBand: parseFloat(Math.exp(a + b * (n - 1) + 2 * resStd).toFixed(0)),
+      lowerBand: parseFloat(Math.exp(a + b * (n - 1) - 2 * resStd).toFixed(0)),
+      bandPos: parseFloat(bandPos.toFixed(2)),
+      r2: parseFloat(r2.toFixed(2)),
+      rejimYukari,
+      ma200: parseFloat(ma200now.toFixed(0)),
+      sinyal,
+      aciklama,
+      stopSeviye,
+      chartPrice, chartTrend, chartUpper, chartLower
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 app.get('/scan-ozel', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
   const tf = req.query.tf || '1d';
