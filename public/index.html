@@ -1259,7 +1259,16 @@ function clearOzelScanHistory(){
     showOzelScanHistory();
   }
 }
-  function ozelLevel(total){
+function saveOzelScanHistory(results){
+  try{
+    var hisseler = results.filter(function(r){ return r.ticker!=='XU100' && r.ticker!=='XU030'; });
+    var hist = JSON.parse(localStorage.getItem('bistOzelScanHist') || '[]');
+    hist.unshift({ date: new Date().toISOString(), results: hisseler });
+    if(hist.length > 20) hist = hist.slice(0, 20);
+    localStorage.setItem('bistOzelScanHist', JSON.stringify(hist));
+  }catch(e){ console.log('Geçmiş kaydedilemedi:', e); }
+}
+function ozelLevel(total){
   if(total >= 3)   return { label:'Çok Güçlü', color:'#7b2cbf', bg:'rgba(123,44,191,0.12)', border:'#7b2cbf' };
   if(total >= 1.5) return { label:'Güçlü',     color:'#2d8a34', bg:'rgba(45,138,52,0.12)',  border:'#2d8a34' };
   if(total >= 0.5) return { label:'Orta',      color:'#a5d6a7', bg:'rgba(165,214,167,0.10)', border:'#a5d6a7' };
