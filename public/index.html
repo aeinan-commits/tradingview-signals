@@ -1201,6 +1201,30 @@ async function runViop30(){
         '</div>'+
         '<div style="background:#0f0f0f;border-radius:10px;padding:14px;margin-bottom:12px;border-left:3px solid '+renk+'"><div style="color:#ccc;font-size:.85rem;line-height:1.5">'+d.aciklama+'</div></div>'+
         stopHtml+
+        (function(){
+          function satir(label, durum, aciklama){
+            var renk = durum ? '#2d8a34' : '#666';
+            var ikon = durum ? '✓' : '○';
+            return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1a1a1a">'+
+              '<span style="color:'+renk+';font-size:1.1rem;font-weight:bold;width:20px">'+ikon+'</span>'+
+              '<span style="flex:1;color:#ccc;font-size:.85rem">'+label+'</span>'+
+              '<span style="color:'+(durum?'#2d8a34':'#888')+';font-size:.8rem;font-weight:600">'+aciklama+'</span>'+
+            '</div>';
+          }
+          var html='<div style="background:#0f0f0f;border-radius:10px;padding:14px 16px;margin-bottom:12px">'+
+            '<div style="color:#e67e22;font-size:.8rem;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📋 Sinyal Kontrol Listesi</div>';
+          html += satir('Fiyat trend çizgisinin %1 üstünde', d.netUstunde, (d.trendUstuPct>=0?'+':'')+d.trendUstuPct+'%');
+          html += satir('Hacim 20 gün ortalamasının üstünde', d.hacimYuksek, d.hacimOran!==null ? d.hacimOran+'x' : 'veri yok');
+          html += satir('Bugün hacimli yukarı kırılım', d.bugunKirilim && d.hacimYuksek, (d.bugunKirilim&&d.hacimYuksek)?'VAR':'yok');
+          html += satir('Yükselen rejim (fiyat > 200g ort.)', d.rejimYukari, d.rejimYukari?'evet':'hayır');
+          if(d.rsiVal!==null){
+            var rsiDurum = d.rsiVal>=50 && d.rsiVal<70;
+            html += satir('RSI(14) sağlıklı bölgede (50-70)', rsiDurum, d.rsiVal + (d.rsiVal>=70?' (aşırı alım)':d.rsiVal<50?' (zayıf)':''));
+          }
+          html += '<div style="color:#666;font-size:.72rem;margin-top:8px;line-height:1.4">Bu göstergeler tek tek karar vermez; birlikte bir tablo çizer. En güçlü kurulum (testte): fiyat %1 üstünde + hacim yüksek + yukarı kırılım günü. Kararı siz verin.</div>';
+          html += '</div>';
+          return html;
+        })()+
         buildViopChart(d)+
         '<div class="vol-desc" style="margin-top:12px">Bu sinyal 2017-2026 verisiyle test edildi; yılların yaklaşık dörtte üçünde çalıştı ama 2018 gibi düşüş yıllarında ters tepti. Sadece yükselen/yatay rejimde anlamlıdır. Short her dönemde kaybettirdiği için önerilmez. Bu bir tahmin değil, geçmiş örüntüye dayalı bir referanstır; kaldıraçla risk katlanır. Yatırım tavsiyesi değildir.</div>'+
       '</div>';
