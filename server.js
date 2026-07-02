@@ -1742,7 +1742,13 @@ app.get('/viop30-sinyal', async (req, res) => {
       sinyal,
       aciklama,
       stopSeviye,
-      chartPrice, chartTrend, chartUpper, chartLower
+      chartPrice, chartTrend, chartUpper, chartLower,
+      trendUstuPct: parseFloat(trendUstuPct.toFixed(2)),
+      netUstunde,
+      hacimOran: hacimOran !== null ? parseFloat(hacimOran.toFixed(2)) : null,
+      hacimYuksek,
+      bugunKirilim,
+      rsiVal: rsiVal !== null ? parseFloat(rsiVal.toFixed(0)) : null
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
