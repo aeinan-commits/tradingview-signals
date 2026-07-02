@@ -1138,38 +1138,72 @@ async function runScanOzel(){
 
 document.getElementById('viop30Btn').addEventListener('click', runViop30);
 function buildViopChart(d){
-  ... (buildViopChart'ın tüm içeriği)
+  var price=d.chartPrice, trend=d.chartTrend, upper=d.chartUpper, lower=d.chartLower;
+  if(!price || price.length<2) return '';
+  var W=900, H=320, padL=60, padR=15, padT=15, padB=25;
+  var n=price.length;
+  var allVals=price.concat(trend).concat(upper).concat(lower);
+  var minV=Math.min.apply(null,allVals), maxV=Math.max.apply(null,allVals);
+  var pad=(maxV-minV)*0.05; minV-=pad; maxV+=pad;
+  function x(i){ return padL + (i/(n-1))*(W-padL-padR); }
+  function y(v){ return padT + (1-(v-minV)/(maxV-minV))*(H-padT-padB); }
+  function pathOf(arr){ var dp=''; for(var i=0;i<arr.length;i++){ dp += (i===0?'M':'L')+x(i).toFixed(1)+' '+y(arr[i]).toFixed(1)+' '; } return dp; }
+  var yLabels='';
+  for(var g=0;g<=4;g++){
+    var val=minV+(maxV-minV)*(g/4); var yy=y(val);
+    yLabels+='<line x1="'+padL+'" y1="'+yy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+yy.toFixed(1)+'" stroke="#222" stroke-width="1"/>';
+    yLabels+='<text x="'+(padL-6)+'" y="'+(yy+3).toFixed(1)+'" fill="#666" font-size="10" text-anchor="end">'+Math.round(val)+'</text>';
+  }
+  var areaPath='';
+  for(var i=0;i<n;i++){ areaPath += (i===0?'M':'L')+x(i).toFixed(1)+' '+y(upper[i]).toFixed(1)+' '; }
+  for(var i=n-1;i>=0;i--){ areaPath += 'L'+x(i).toFixed(1)+' '+y(lower[i]).toFixed(1)+' '; }
+  areaPath+='Z';
+  var lastX=x(n-1), lastYp=y(price[n-1]);
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">'+
+    yLabels+
+    '<path d="'+areaPath+'" fill="#e67e22" opacity="0.07"/>'+
+    '<path d="'+pathOf(upper)+'" fill="none" stroke="#e67e22" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>'+
+    '<path d="'+pathOf(lower)+'" fill="none" stroke="#e67e22" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>'+
+    '<path d="'+pathOf(trend)+'" fill="none" stroke="#e67e22" stroke-width="1.8" stroke-dasharray="6 4"/>'+
+    '<path d="'+pathOf(price)+'" fill="none" stroke="#fff" stroke-width="1.6"/>'+
+    '<circle cx="'+lastX.toFixed(1)+'" cy="'+lastYp.toFixed(1)+'" r="4" fill="#fff"/>'+
+    '</svg>';
+  var legend='<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:10px;font-size:.78rem">'+
+    '<span style="color:#fff">━ XU030</span><span style="color:#e67e22">┅ Trend</span>'+
+    '<span style="color:#e67e22;opacity:.6">┈ Bant (±2σ)</span></div>';
+  return '<div style="background:#0f0f0f;border-radius:12px;padding:16px;margin-top:16px">'+svg+legend+'</div>';
 }
 async function runViop30(){
-  ... (runViop30'un tüm içeriği)
-}
-  // ===== ÖZEL TARAMA GEÇMİŞİ (son 10 tarama, en yüksek 5 + beraberlik) =====
-function saveOzelScanHistory(results){
+  var box=document.getElementById('scanResult');
+  box.style.display='block';
+  box.innerHTML='<div style="background:#1a1a1a;border-radius:12px;padding:30px;text-align:center;color:#aaa">⏳ VİOP-30 sinyali hesaplanıyor...</div>';
   try{
-    if(!results || results.length===0) return;
-    // Puana göre sıralı (zaten sunucudan total'a göre sıralı geliyor ama garanti edelim)
-    var sorted = results.slice().sort(function(a,b){ return b.total-a.total; });
-    // En yüksek 5'i al, ama 5.'nin puanına eşit olanları da dahil et
-    var top = sorted.slice(0,5);
-    if(sorted.length>5){
-      var fifthScore = sorted[4].total;
-      for(var k=5;k<sorted.length;k++){
-        if(sorted[k].total===fifthScore) top.push(sorted[k]);
-        else break;
-      }
-    }
-    var now = new Date();
-    var entry = {
-      stamp: now.toLocaleDateString('tr-TR')+' '+now.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}),
-      tf: selectedTF,
-      picks: top.map(function(r){ return { ticker:r.ticker, total:r.total, price:r.price }; })
-    };
-    var hist = [];
-    try{ hist = JSON.parse(localStorage.getItem('bistOzelScanHist')||'[]'); }catch(e){ hist=[]; }
-    hist.unshift(entry);
-    if(hist.length>10) hist = hist.slice(0,10);
-    localStorage.setItem('bistOzelScanHist', JSON.stringify(hist));
-  }catch(e){}
+    var res=await fetch('/viop30-sinyal');
+    var d=await res.json();
+    if(d.error){ box.innerHTML='<div class="error">❌ '+d.error+'</div>'; return; }
+    var renk={'AL BÖLGESİ':'#2d8a34','İZLE':'#5c9ce6','NÖTR':'#d4a017','PAHALI':'#ff7043','BEKLE':'#888'}[d.sinyal]||'#888';
+    var ikon={'AL BÖLGESİ':'🟢','İZLE':'👁️','NÖTR':'🟡','PAHALI':'🔴','BEKLE':'⏸️'}[d.sinyal]||'';
+    var rejimTxt = d.rejimYukari ? '<span style="color:#2d8a34">✓ Yükselen rejim</span> (fiyat 200g ort. üstünde)' : '<span style="color:#ff7043">✗ Zayıf/düşüş rejim</span> (fiyat 200g ort. altında) — sistem kapalı';
+    var stopHtml = d.stopSeviye ? '<div style="background:#0f0f0f;border-radius:10px;padding:12px 14px;margin-bottom:12px;border-left:3px solid #ff7043"><div style="color:#ff7043;font-size:.82rem;font-weight:bold">🛑 Önerilen Stop: ₺'+d.stopSeviye+' (yaklaşık -%5)</div><div style="color:#888;font-size:.78rem;margin-top:3px">Geçmişte en kötü işlemler yaklaşık -%13 ila -%18 arası oldu. Stop olmadan, özellikle kaldıraçla, tek kötü işlem hesabı silebilir.</div></div>' : '';
+    box.innerHTML=
+      '<div style="background:#1a1a1a;border-radius:16px;padding:24px;border:2px solid '+renk+'">'+
+        '<div style="text-align:center;margin-bottom:14px">'+
+          '<div style="color:#e67e22;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">⚡ VİOP-30 (XU030) Sinyal</div>'+
+          '<div style="font-size:2.2rem;font-weight:bold;color:'+renk+'">'+ikon+' '+d.sinyal+'</div>'+
+          '<div style="color:#888;font-size:.82rem;margin-top:6px">'+rejimTxt+'</div>'+
+        '</div>'+
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;text-align:center;margin-bottom:14px">'+
+          '<div style="flex:1;min-width:100px;background:#0f0f0f;border-radius:10px;padding:12px"><div style="color:#888;font-size:.72rem;font-weight:bold">ENDEKS</div><div style="font-size:1.2rem;font-weight:bold">'+d.currentPrice+'</div></div>'+
+          '<div style="flex:1;min-width:100px;background:#0f0f0f;border-radius:10px;padding:12px"><div style="color:#e67e22;font-size:.72rem;font-weight:bold">TREND</div><div style="font-size:1.2rem;font-weight:bold;color:#e67e22">'+d.trendPrice+'</div></div>'+
+          '<div style="flex:1;min-width:100px;background:#0f0f0f;border-radius:10px;padding:12px"><div style="color:#888;font-size:.72rem;font-weight:bold">KONUM</div><div style="font-size:1.2rem;font-weight:bold;color:'+renk+'">'+(d.bandPos>=0?'+':'')+d.bandPos+'σ</div></div>'+
+        '</div>'+
+        '<div style="background:#0f0f0f;border-radius:10px;padding:14px;margin-bottom:12px;border-left:3px solid '+renk+'"><div style="color:#ccc;font-size:.85rem;line-height:1.5">'+d.aciklama+'</div></div>'+
+        stopHtml+
+        buildViopChart(d)+
+        '<div class="vol-desc" style="margin-top:12px">Bu sinyal 2017-2026 verisiyle test edildi; yılların yaklaşık dörtte üçünde çalıştı ama 2018 gibi düşüş yıllarında ters tepti. Sadece yükselen/yatay rejimde anlamlıdır. Short her dönemde kaybettirdiği için önerilmez. Bu bir tahmin değil, geçmiş örüntüye dayalı bir referanstır; kaldıraçla risk katlanır. Yatırım tavsiyesi değildir.</div>'+
+      '</div>';
+    window.scrollTo({top:document.getElementById('scanResult').offsetTop-20,behavior:'smooth'});
+  }catch(e){ box.innerHTML='<div class="error">❌ Hata: '+e.message+'</div>'; }
 }
 
 function showOzelScanHistory(){
