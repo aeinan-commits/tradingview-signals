@@ -1638,15 +1638,10 @@ app.get('/viop30-sinyal', async (req, res) => {
         volsRaw.push(q.volume[i] !== null ? q.volume[i] : 0);
       }
     }
-    // Son bar yarım/başlamamış mı? (hacmi son 20 tam günün ortalamasının %30'undan azsa, o günü at)
-    if (closesRaw.length >= 22) {
-      const son = volsRaw.length - 1;
-      const ort20 = volsRaw.slice(son - 20, son).reduce((s, v) => s + v, 0) / 20;
-      if (ort20 > 0 && volsRaw[son] < ort20 * 0.3) {
-        // son bar yarım — at
-        closesRaw = closesRaw.slice(0, -1);
-        volsRaw = volsRaw.slice(0, -1);
-      }
+    // Son bar(lar) kapanmamışsa (hacmi 0 veya null) at — canlı günün yarım verisini kullanma
+    while (closesRaw.length >= 2 && (volsRaw[volsRaw.length - 1] === 0 || volsRaw[volsRaw.length - 1] === null)) {
+      closesRaw = closesRaw.slice(0, -1);
+      volsRaw = volsRaw.slice(0, -1);
     }
     const closes = closesRaw;
     const N = closes.length;
