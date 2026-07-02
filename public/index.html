@@ -125,6 +125,9 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 <input id="tiDip" placeholder="DİP SİNYALİ İÇİN HİSSE KODU (örn: GARAN)" onkeydown="if(event.key==='Enter')runDip()">
 <button id="btnDip" onclick="runDip()" style="background:#2d8a34;color:#fff">📉 Dip Sinyali</button>
 </div>
+<div style="text-align:center;margin-top:14px;margin-bottom:20px">
+<button id="scanDipBtn" style="padding:10px 24px;background:#2d8a34;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem">📉 Dip Hisseleri Tara</button>
+</div>
 <div id="resultDip" style="display:none;max-width:1200px;margin:20px auto"></div>
 <div id="scanResult" style="display:none;margin-bottom:24px"></div>
 <div class="tf-bar">
@@ -1305,6 +1308,48 @@ async function runDip(){
   }catch(e){ box.innerHTML='<p class="error">❌ Hata: '+e.message+'</p>'; }
 }
 
+document.getElementById('scanDipBtn').addEventListener('click', runScanDip);
+async function runScanDip(){
+  var btn=document.getElementById('scanDipBtn');
+  var box=document.getElementById('resultDip');
+  btn.disabled=true; btn.textContent='⏳ Taranıyor...';
+  box.style.display='block';
+  box.innerHTML='<div style="background:#1a1a1a;border-radius:12px;padding:30px;text-align:center;color:#aaa">⏳ Dip hisseleri taranıyor...</div>';
+  try{
+    var res=await fetch('/scan-dip');
+    var d=await res.json();
+    if(!d.results){ box.innerHTML='<div class="error">Tarama başarısız.</div>'; btn.disabled=false; btn.textContent='📉 Dip Hisseleri Tara'; return; }
+    var ucDip=d.results.filter(function(r){ return r.bandPos<=-2; });
+    var dip=d.results.filter(function(r){ return r.bandPos>-2 && r.bandPos<=-1; });
+    var izle=d.results.filter(function(r){ return r.bandPos>-1 && r.bandPos<0; });
+    var digerleri=d.results.filter(function(r){ return r.bandPos>=0; });
+
+    function kart(r,renk){
+      var sapma=(((r.currentPrice-r.trendPrice)/r.trendPrice)*100).toFixed(0);
+      return '<div onclick="document.getElementById(\'tiDip\').value=\''+r.ticker+'\';runDip()" style="cursor:pointer;background:#0f0f0f;border:1px solid #2a2a2a;border-left:4px solid '+renk+';border-radius:8px;padding:8px 12px;min-width:140px" onmouseover="this.style.filter=\'brightness(1.4)\'" onmouseout="this.style.filter=\'none\'">'+
+        '<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.9rem">'+r.ticker+'</span><span style="color:'+renk+';font-weight:bold;font-size:.85rem">'+(r.bandPos>=0?'+':'')+r.bandPos+'σ</span></div>'+
+        '<div style="display:flex;justify-content:space-between;margin-top:3px"><span style="color:#888;font-size:.72rem">₺'+r.currentPrice+'</span><span style="color:#5c9ce6;font-size:.72rem">trend ₺'+r.trendPrice+' ('+sapma+'%)</span></div>'+
+      '</div>';
+    }
+    function grup(baslik,arr,renk,aciklama){
+      if(arr.length===0) return '';
+      var h='<div style="margin-bottom:16px"><div style="color:'+renk+';font-size:.9rem;font-weight:bold;margin-bottom:2px">'+baslik+' ('+arr.length+')</div><div style="color:#888;font-size:.72rem;margin-bottom:8px">'+aciklama+'</div><div style="display:flex;flex-wrap:wrap;gap:8px">';
+      arr.forEach(function(r){ h+=kart(r,renk); });
+      return h+'</div></div>';
+    }
+
+    var html='<div style="background:#1a1a1a;border-radius:16px;padding:20px">'+
+      '<div style="color:#2d8a34;font-size:1.1rem;font-weight:bold;margin-bottom:4px">📉 Dip Taraması</div>'+
+      '<div style="color:#888;font-size:.72rem;margin-bottom:16px">Dip-karakterli hisseler, kendi trend çizgilerine göre konumlarıyla. Karta tıklayınca detay açılır. Sadece dip-karakterli hisseler taranır.</div>';
+    html+=grup('🟢 UÇ DİP (-2σ altı)',ucDip,'#2d8a34','Tarihsel olarak en uç ucuzluk. Nadir ve en güçlü dip bölgesi.');
+    html+=grup('🟡 DİP BÖLGESİ (-1σ ile -2σ arası)',dip,'#d4a017','Trend çizgisinin belirgin altı. Ana dip alım bölgesi (5 gün tutma).');
+    html+=grup('👁️ İZLEMEDE (-1σ ile 0 arası)',izle,'#5c9ce6','Trendin hafif altında. Henüz dip değil; -1σ altına inerse dip bölgesine girer.');
+    html+=grup('⚪ TREND ÜSTÜ / NÖTR',digerleri,'#666','Trend çizgisinin üstünde. Dip alımı için uygun değil.');
+    html+='<div class="vol-desc" style="margin-top:8px">Testlerde dip-karakterli hisseler (özellikle bankalar) -1σ altından 5 günde endeks-göreli toparlanma eğilimi gösterdi. Geçmişe dayalıdır, garanti değildir. Yatırım tavsiyesi değildir.</div></div>';
+    box.innerHTML=html;
+  }catch(e){ box.innerHTML='<div class="error">❌ Hata: '+e.message+'</div>'; }
+  btn.disabled=false; btn.textContent='📉 Dip Hisseleri Tara';
+}  
 function showOzelScanHistory(){
   var box=document.getElementById('scanResult');
   box.style.display='block';
