@@ -1699,7 +1699,37 @@ app.get('/viop30-sinyal', async (req, res) => {
       chartUpper.push(parseFloat(Math.exp(tv + 2 * resStd).toFixed(0)));
       chartLower.push(parseFloat(Math.exp(tv - 2 * resStd).toFixed(0)));
     }
+// ===== EK GÖSTERGELER (kontrol listesi için) =====
+    // 1. Net geçme: fiyat trend fiyatının %1 üstünde mi
+    const trendUstuPct = ((currentPrice - trendPrice) / trendPrice) * 100;
+    const netUstunde = trendUstuPct > 1;
 
+    // 2. Hacim: bugün 20 gün ortalamasının üstünde mi
+    const vols = data.chart.result[0].indicators.quote[0].volume.filter(v => v !== null);
+    let hacimOran = null;
+    if (vols.length >= 20) {
+      const vol20 = vols.slice(-20).reduce((s, v) => s + v, 0) / 20;
+      hacimOran = vol20 > 0 ? vols[vols.length - 1] / vol20 : null;
+    }
+    const hacimYuksek = hacimOran !== null && hacimOran > 1;
+
+    // 3. Bugün yukarı kırılım oldu mu (dünkü sapma ≤0, bugünkü >%1)
+    const oncekiPrice = closes[N - 2];
+    const oncekiTrend = Math.exp(a + b * (n - 2));
+    const oncekiSapma = ((oncekiPrice - oncekiTrend) / oncekiTrend) * 100;
+    const bugunKirilim = oncekiSapma <= 0 && trendUstuPct > 1;
+
+    // 4. RSI(14)
+    let rsiVal = null;
+    if (closes.length >= 15) {
+      let g = 0, l = 0;
+      for (let i = closes.length - 14; i < closes.length; i++) {
+        const dd = closes[i] - closes[i - 1];
+        if (dd > 0) g += dd; else l += Math.abs(dd);
+      }
+      const ag = g / 14, al = l / 14;
+      rsiVal = 100 - (100 / (1 + ag / (al || 0.0001)));
+    }
     res.json({
       currentPrice: parseFloat(currentPrice.toFixed(0)),
       trendPrice: parseFloat(trendPrice.toFixed(0)),
