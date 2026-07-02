@@ -1774,6 +1774,98 @@ app.get('/viop30-sinyal', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+// ===== HİSSE DİP SİNYALİ (dip-karakterli hisseler için) =====
+const DIP_HISSELERI = ['GARAN','YKBNK','ISCTR','KCHOL','THYAO','BIMAS','TCELL','SISE','EREGL','ARCLK','SASA','AKBNK','VAKBN','HALKB'];
+
+app.get('/dip-sinyal/:ticker', async (req, res) => {
+  const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
+  try {
+    const ticker = req.params.ticker.toUpperCase();
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.IS?interval=1d&range=2y&events=div%2Csplit`, { headers });
+    const data = await r.json();
+    if (!data.chart || !data.chart.result || !data.chart.result[0]) return res.status(500).json({ error: 'Hisse bulunamadı: ' + ticker });
+    const q = data.chart.result[0].indicators.quote[0];
+    // Kapanış + hacim, yarım gün (hacim 0) atılır
+    let closesRaw = [], volsRaw = [];
+    for (let i = 0; i < q.close.length; i++) {
+      if (q.close[i] !== null && q.close[i] > 0) { closesRaw.push(q.close[i]); volsRaw.push(q.volume[i] !== null ? q.volume[i] : 0); }
+    }
+    while (closesRaw.length >= 2 && (volsRaw[volsRaw.length - 1] === 0 || volsRaw[volsRaw.length - 1] === null)) {
+      closesRaw = closesRaw.slice(0, -1); volsRaw = volsRaw.slice(0, -1);
+    }
+    const closes = closesRaw;
+    const N = closes.length;
+    if (N < 260) return res.status(500).json({ error: 'Yeterli veri yok' });
+
+    // 1 yıllık pencere log-regresyon + bant
+    const W = 250;
+    const slice = closes.slice(N - W);
+    const y = slice.map(p => Math.log(p));
+    const n = y.length;
+    let sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (let i = 0; i < n; i++) { sx += i; sy += y[i]; sxx += i * i; sxy += i * y[i]; }
+    const b = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+    const a = (sy - b * sx) / n;
+    let rv = 0;
+    for (let i = 0; i < n; i++) { const rr = y[i] - (a + b * i); rv += rr * rr; }
+    const resStd = Math.sqrt(rv / n);
+    const bandPos = resStd === 0 ? 0 : (y[n - 1] - (a + b * (n - 1))) / resStd;
+    const trendPrice = Math.exp(a + b * (n - 1));
+    const currentPrice = closes[N - 1];
+    const lowerBand = Math.exp(a + b * (n - 1) - resStd);       // -1σ (giriş bölgesi eşiği)
+    const lowerBand2 = Math.exp(a + b * (n - 1) - 2 * resStd);  // -2σ
+
+    // R²
+    const meanY = sy / n;
+    let ssTot = 0, ssRes = 0;
+    for (let i = 0; i < n; i++) { const yh = a + b * i; ssRes += Math.pow(y[i] - yh, 2); ssTot += Math.pow(y[i] - meanY, 2); }
+    const r2 = ssTot === 0 ? 0 : 1 - ssRes / ssTot;
+
+    const dipKarakterli = DIP_HISSELERI.includes(ticker);
+
+    // Sinyal
+    let sinyal, aciklama, stopSeviye = null;
+    if (bandPos <= -1) {
+      sinyal = 'DİP ALIM BÖLGESİ';
+      stopSeviye = parseFloat((currentPrice * 0.93).toFixed(2));
+      aciklama = 'Fiyat trend çizgisinin belirgin altında (dip bölgesi). ' + (dipKarakterli
+        ? 'Bu hisse geçmiş testlerde dip-karakterli çıktı — bu bölgeden 5 gün tutmada tarihsel olarak toparlanma eğilimi gösterdi.'
+        : 'DİKKAT: Bu hisse test listemizde dip-karakterli DEĞİL — dip sinyali bu hissede geçmişte güvenilir olmadı, temkinli olun.');
+    } else if (bandPos < 0) {
+      sinyal = 'İZLE';
+      aciklama = 'Fiyat trend çizgisinin hafif altında. Henüz dip bölgesi değil; -1σ altına inerse dip alım bölgesine girer.';
+    } else {
+      sinyal = 'NÖTR/PAHALI';
+      aciklama = 'Fiyat trend çizgisinin üstünde. Dip alımı için uygun değil.';
+    }
+
+    // Grafik
+    const step = Math.max(1, Math.floor(W / 150));
+    const chartPrice = [], chartTrend = [], chartLower = [], chartLower2 = [];
+    for (let i = 0; i < W; i += step) {
+      const tv = a + b * i;
+      chartPrice.push(parseFloat(slice[i].toFixed(2)));
+      chartTrend.push(parseFloat(Math.exp(tv).toFixed(2)));
+      chartLower.push(parseFloat(Math.exp(tv - resStd).toFixed(2)));
+      chartLower2.push(parseFloat(Math.exp(tv - 2 * resStd).toFixed(2)));
+    }
+
+    res.json({
+      ticker,
+      dipKarakterli,
+      currentPrice: parseFloat(currentPrice.toFixed(2)),
+      trendPrice: parseFloat(trendPrice.toFixed(2)),
+      lowerBand: parseFloat(lowerBand.toFixed(2)),
+      lowerBand2: parseFloat(lowerBand2.toFixed(2)),
+      bandPos: parseFloat(bandPos.toFixed(2)),
+      r2: parseFloat(r2.toFixed(2)),
+      sinyal, aciklama, stopSeviye,
+      chartPrice, chartTrend, chartLower, chartLower2
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 app.get('/scan-ozel', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
   const tf = req.query.tf || '1d';
