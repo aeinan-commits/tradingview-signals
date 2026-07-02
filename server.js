@@ -1630,7 +1630,25 @@ app.get('/viop30-sinyal', async (req, res) => {
     const data = await r.json();
     if (!data.chart || !data.chart.result || !data.chart.result[0]) return res.status(500).json({ error: 'XU030 verisi alınamadı' });
     const q = data.chart.result[0].indicators.quote[0];
-    const closes = q.close.filter(p => p !== null && p > 0);
+    // Kapanış ve hacmi birlikte al (null olmayan barlar)
+    let closesRaw = [], volsRaw = [];
+    for (let i = 0; i < q.close.length; i++) {
+      if (q.close[i] !== null && q.close[i] > 0) {
+        closesRaw.push(q.close[i]);
+        volsRaw.push(q.volume[i] !== null ? q.volume[i] : 0);
+      }
+    }
+    // Son bar yarım/başlamamış mı? (hacmi son 20 tam günün ortalamasının %30'undan azsa, o günü at)
+    if (closesRaw.length >= 22) {
+      const son = volsRaw.length - 1;
+      const ort20 = volsRaw.slice(son - 20, son).reduce((s, v) => s + v, 0) / 20;
+      if (ort20 > 0 && volsRaw[son] < ort20 * 0.3) {
+        // son bar yarım — at
+        closesRaw = closesRaw.slice(0, -1);
+        volsRaw = volsRaw.slice(0, -1);
+      }
+    }
+    const closes = closesRaw;
     const N = closes.length;
     if (N < 260) return res.status(500).json({ error: 'Yeterli veri yok' });
 
@@ -1705,7 +1723,7 @@ app.get('/viop30-sinyal', async (req, res) => {
     const netUstunde = trendUstuPct > 1;
 
     // 2. Hacim: bugün 20 gün ortalamasının üstünde mi
-    const vols = data.chart.result[0].indicators.quote[0].volume.filter(v => v !== null);
+    const vols = volsRaw;
     let hacimOran = null;
     if (vols.length >= 20) {
       const vol20 = vols.slice(-20).reduce((s, v) => s + v, 0) / 20;
