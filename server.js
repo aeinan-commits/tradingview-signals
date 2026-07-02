@@ -1729,6 +1729,10 @@ app.get('/viop30-sinyal', async (req, res) => {
       }
       const ag = g / 14, al = l / 14;
       rsiVal = 100 - (100 / (1 + ag / (al || 0.0001)));
+      
+      // 5. Son 2 gün yükseliş + hacim ortalamanın üstünde
+    const ikiGunYukselis = closes[N - 1] > closes[N - 2] && closes[N - 2] > closes[N - 3];
+    const momentumDestek = ikiGunYukselis && hacimYuksek;
     }
     res.json({
       currentPrice: parseFloat(currentPrice.toFixed(0)),
@@ -1748,7 +1752,9 @@ app.get('/viop30-sinyal', async (req, res) => {
       hacimOran: hacimOran !== null ? parseFloat(hacimOran.toFixed(2)) : null,
       hacimYuksek,
       bugunKirilim,
-      rsiVal: rsiVal !== null ? parseFloat(rsiVal.toFixed(0)) : null
+      rsiVal: rsiVal !== null ? parseFloat(rsiVal.toFixed(0)) : null,
+      ikiGunYukselis,
+      momentumDestek
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
