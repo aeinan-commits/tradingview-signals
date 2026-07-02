@@ -121,6 +121,11 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 <div style="text-align:center;margin-top:24px;margin-bottom:20px">
 <button id="viop30Btn" style="padding:10px 24px;background:#e67e22;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem">⚡ VİOP-30 Sinyal</button>
 </div>
+<div class="search" style="margin-top:16px">
+<input id="tiDip" placeholder="DİP SİNYALİ İÇİN HİSSE KODU (örn: GARAN)" onkeydown="if(event.key==='Enter')runDip()">
+<button id="btnDip" onclick="runDip()" style="background:#2d8a34;color:#fff">📉 Dip Sinyali</button>
+</div>
+<div id="resultDip" style="display:none;max-width:1200px;margin:20px auto"></div>
 <div id="scanResult" style="display:none;margin-bottom:24px"></div>
 <div class="tf-bar">
 <button data-tf="15m">15dk</button>
@@ -1231,6 +1236,72 @@ async function runViop30(){
       '</div>';
     window.scrollTo({top:document.getElementById('scanResult').offsetTop-20,behavior:'smooth'});
   }catch(e){ box.innerHTML='<div class="error">❌ Hata: '+e.message+'</div>'; }
+}
+  function buildDipChart(d){
+  var price=d.chartPrice, trend=d.chartTrend, low1=d.chartLower, low2=d.chartLower2;
+  if(!price || price.length<2) return '';
+  var W=900,H=320,padL=60,padR=15,padT=15,padB=25;
+  var n=price.length;
+  var allVals=price.concat(trend).concat(low2);
+  var minV=Math.min.apply(null,allVals),maxV=Math.max.apply(null,allVals);
+  var pad=(maxV-minV)*0.05; minV-=pad; maxV+=pad;
+  function x(i){ return padL+(i/(n-1))*(W-padL-padR); }
+  function y(v){ return padT+(1-(v-minV)/(maxV-minV))*(H-padT-padB); }
+  function pathOf(arr){ var dp=''; for(var i=0;i<arr.length;i++){ dp+=(i===0?'M':'L')+x(i).toFixed(1)+' '+y(arr[i]).toFixed(1)+' '; } return dp; }
+  var yLabels='';
+  for(var g=0;g<=4;g++){ var val=minV+(maxV-minV)*(g/4); var yy=y(val); yLabels+='<line x1="'+padL+'" y1="'+yy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+yy.toFixed(1)+'" stroke="#222" stroke-width="1"/><text x="'+(padL-6)+'" y="'+(yy+3).toFixed(1)+'" fill="#666" font-size="10" text-anchor="end">'+val.toFixed(1)+'</text>'; }
+  var lastX=x(n-1),lastYp=y(price[n-1]);
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">'+
+    yLabels+
+    '<path d="'+pathOf(trend)+'" fill="none" stroke="#5c9ce6" stroke-width="1.6" stroke-dasharray="6 4"/>'+
+    '<path d="'+pathOf(low1)+'" fill="none" stroke="#d4a017" stroke-width="1" stroke-dasharray="3 3" opacity="0.7"/>'+
+    '<path d="'+pathOf(low2)+'" fill="none" stroke="#2d8a34" stroke-width="1" stroke-dasharray="3 3" opacity="0.7"/>'+
+    '<path d="'+pathOf(price)+'" fill="none" stroke="#fff" stroke-width="1.6"/>'+
+    '<circle cx="'+lastX.toFixed(1)+'" cy="'+lastYp.toFixed(1)+'" r="4" fill="#fff"/>'+
+    '</svg>';
+  var legend='<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:10px;font-size:.76rem">'+
+    '<span style="color:#fff">━ Fiyat</span><span style="color:#5c9ce6">┅ Trend</span>'+
+    '<span style="color:#d4a017">┈ -1σ (dip bölgesi)</span><span style="color:#2d8a34">┈ -2σ (uç dip)</span></div>';
+  return '<div style="background:#0f0f0f;border-radius:12px;padding:16px;margin-top:16px">'+svg+legend+'</div>';
+}
+async function runDip(){
+  var t=document.getElementById('tiDip').value.trim().toUpperCase();
+  if(!t) return;
+  var box=document.getElementById('resultDip');
+  box.style.display='block';
+  box.innerHTML='<p class="loading">⏳ Dip sinyali hesaplanıyor...</p>';
+  try{
+    var res=await fetch('/dip-sinyal/'+t);
+    var d=await res.json();
+    if(d.error){ box.innerHTML='<p class="error">❌ '+d.error+'</p>'; return; }
+    var renk={'DİP ALIM BÖLGESİ':'#2d8a34','İZLE':'#d4a017','NÖTR/PAHALI':'#888'}[d.sinyal]||'#888';
+    var ikon={'DİP ALIM BÖLGESİ':'🟢','İZLE':'👁️','NÖTR/PAHALI':'⚪'}[d.sinyal]||'';
+    var karakterRozet = d.dipKarakterli
+      ? '<span style="background:#2d8a3422;color:#2d8a34;font-size:.72rem;font-weight:bold;padding:3px 8px;border-radius:5px">✓ Dip-karakterli hisse</span>'
+      : '<span style="background:#ff704322;color:#ff7043;font-size:.72rem;font-weight:bold;padding:3px 8px;border-radius:5px">⚠ Dip-karakterli DEĞİL</span>';
+    var stopHtml = d.stopSeviye
+      ? '<div style="background:#0f0f0f;border-radius:10px;padding:12px 14px;margin-bottom:12px;border-left:3px solid #ff7043"><div style="color:#ff7043;font-size:.82rem;font-weight:bold">🛑 Önerilen Stop: ₺'+d.stopSeviye+' (yaklaşık -%7)</div><div style="color:#888;font-size:.78rem;margin-top:3px">Dip alımında en kötü işlemler sert olabilir. Kaldıraçla stop şart.</div></div>'
+      : '';
+    box.innerHTML=
+      '<div style="background:#1a1a1a;border-radius:16px;padding:24px;border:2px solid '+renk+'">'+
+        '<div style="text-align:center;margin-bottom:14px">'+
+          '<div style="color:#2d8a34;font-size:.8rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📉 Dip Sinyali — '+d.ticker+'</div>'+
+          '<div style="font-size:2rem;font-weight:bold;color:'+renk+'">'+ikon+' '+d.sinyal+'</div>'+
+          '<div style="margin-top:8px">'+karakterRozet+'</div>'+
+        '</div>'+
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;text-align:center;margin-bottom:14px">'+
+          '<div style="flex:1;min-width:90px;background:#0f0f0f;border-radius:10px;padding:12px"><div style="color:#888;font-size:.7rem;font-weight:bold">FİYAT</div><div style="font-size:1.1rem;font-weight:bold">₺'+d.currentPrice+'</div></div>'+
+          '<div style="flex:1;min-width:90px;background:#0f0f0f;border-radius:10px;padding:12px"><div style="color:#5c9ce6;font-size:.7rem;font-weight:bold">TREND</div><div style="font-size:1.1rem;font-weight:bold;color:#5c9ce6">₺'+d.trendPrice+'</div></div>'+
+          '<div style="flex:1;min-width:90px;background:#0f0f0f;border-radius:10px;padding:12px"><div style="color:#d4a017;font-size:.7rem;font-weight:bold">DİP EŞİĞİ(-1σ)</div><div style="font-size:1.1rem;font-weight:bold;color:#d4a017">₺'+d.lowerBand+'</div></div>'+
+          '<div style="flex:1;min-width:90px;background:#0f0f0f;border-radius:10px;padding:12px"><div style="color:#888;font-size:.7rem;font-weight:bold">KONUM</div><div style="font-size:1.1rem;font-weight:bold;color:'+renk+'">'+(d.bandPos>=0?'+':'')+d.bandPos+'σ</div></div>'+
+        '</div>'+
+        '<div style="background:'+renk+'15;border-radius:10px;padding:14px;margin-bottom:12px;border-left:3px solid '+renk+'"><div style="color:#ccc;font-size:.85rem;line-height:1.5">'+d.aciklama+'</div></div>'+
+        stopHtml+
+        buildDipChart(d)+
+        '<div class="vol-desc" style="margin-top:12px">Dip sinyali: fiyat kendi 1 yıllık trend çizgisinin -1σ altına inince tetiklenir (5 gün tutma). Testlerde dip-karakterli hisseler (özellikle bankalar) bu bölgeden endeks-göreli toparlanma eğilimi gösterdi (2023-2026, yılda 50-100 fırsat, kazanma ~%57-67). Dip-karakterli olmayan hisselerde güvenilir değildir. Geçmişe dayalıdır, garanti değildir; yatırım tavsiyesi değildir.</div>'+
+      '</div>';
+    window.scrollTo({top:document.getElementById('resultDip').offsetTop-20,behavior:'smooth'});
+  }catch(e){ box.innerHTML='<p class="error">❌ Hata: '+e.message+'</p>'; }
 }
 
 function showOzelScanHistory(){
