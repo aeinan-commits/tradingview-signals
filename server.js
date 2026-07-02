@@ -1866,6 +1866,54 @@ app.get('/dip-sinyal/:ticker', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+// Tek hisse için hızlı dip hesabı (tarama)
+async function quickDip(ticker, headers) {
+  try {
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.IS?interval=1d&range=2y&events=div%2Csplit`, { headers });
+    const data = await r.json();
+    if (!data.chart || !data.chart.result || !data.chart.result[0]) return null;
+    const q = data.chart.result[0].indicators.quote[0];
+    let cRaw = [], vRaw = [];
+    for (let i = 0; i < q.close.length; i++) {
+      if (q.close[i] !== null && q.close[i] > 0) { cRaw.push(q.close[i]); vRaw.push(q.volume[i] !== null ? q.volume[i] : 0); }
+    }
+    while (cRaw.length >= 2 && (vRaw[vRaw.length - 1] === 0 || vRaw[vRaw.length - 1] === null)) { cRaw = cRaw.slice(0, -1); vRaw = vRaw.slice(0, -1); }
+    const closes = cRaw;
+    const M = closes.length;
+    if (M < 260) return null;
+    const W = 250;
+    const slice = closes.slice(M - W);
+    const y = slice.map(p => Math.log(p));
+    const n = y.length;
+    let sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (let i = 0; i < n; i++) { sx += i; sy += y[i]; sxx += i * i; sxy += i * y[i]; }
+    const b = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+    const a = (sy - b * sx) / n;
+    let rv = 0;
+    for (let i = 0; i < n; i++) { const rr = y[i] - (a + b * i); rv += rr * rr; }
+    const resStd = Math.sqrt(rv / n);
+    const bandPos = resStd === 0 ? 0 : (y[n - 1] - (a + b * (n - 1))) / resStd;
+    return {
+      ticker,
+      currentPrice: parseFloat(closes[M - 1].toFixed(2)),
+      trendPrice: parseFloat(Math.exp(a + b * (n - 1)).toFixed(2)),
+      bandPos: parseFloat(bandPos.toFixed(2))
+    };
+  } catch (e) { return null; }
+}
+
+app.get('/scan-dip', async (req, res) => {
+  const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
+  const results = [];
+  for (let i = 0; i < DIP_HISSELERI.length; i += 4) {
+    const chunk = DIP_HISSELERI.slice(i, i + 4);
+    const part = await Promise.all(chunk.map(t => quickDip(t, headers)));
+    part.forEach(p => { if (p) results.push(p); });
+  }
+  // En düşük bandPos (en dipte) en üste
+  results.sort((x, y) => x.bandPos - y.bandPos);
+  res.json({ count: results.length, results });
+});
 app.get('/scan-ozel', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
   const tf = req.query.tf || '1d';
