@@ -117,6 +117,7 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 <button id="scanBtn" style="padding:10px 24px;background:#9c27b0;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem">📊 BIST100 Tara</button>
 <button id="scanBtnOzel" style="padding:10px 24px;background:#a5d6a7;color:#1a1a1a;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem;margin-left:8px">🧪 BIST100 Tara Özel</button><button id="scanHistBtn" onclick="showOzelScanHistory()" style="padding:10px 24px;background:#1a1a1a;color:#a5d6a7;border:1px solid #a5d6a7;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem;margin-left:8px">🗂️ Tarama Geçmişi</button>
 <button id="scanTrendBtn" style="padding:10px 24px;background:#5c9ce6;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem;margin-left:8px">📐 BIST100 Trend Tara</button>
+<button id="viop30Btn" style="padding:10px 24px;background:#e67e22;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem;margin-left:8px">⚡ VİOP-30 Sinyal</button>
 </div>
 <div id="scanResult" style="display:none;margin-bottom:24px"></div>
 <div class="tf-bar">
@@ -1132,7 +1133,15 @@ async function runScanOzel(){
     html+='</div><div class="vol-desc" style="margin-top:8px">Deneysel özel tarama. Yatırım tavsiyesi değildir.</div></div>';
     box.innerHTML=html;
   }catch(e){ box.innerHTML='<div class="error">❌ Hata: '+e.message+'</div>'; }
-  btn.disabled=false; btn.textContent='🧪 BIST100 Tara Özel';
+  btn.disabled=false; btn.textContent='📐 BIST100 Trend Tara (ucuzdan pahalıya)';
+}
+
+document.getElementById('viop30Btn').addEventListener('click', runViop30);   ← BURADAN İTİBAREN YENİ
+function buildViopChart(d){
+  ... (buildViopChart'ın tüm içeriği)
+}
+async function runViop30(){
+  ... (runViop30'un tüm içeriği)
 }
   // ===== ÖZEL TARAMA GEÇMİŞİ (son 10 tarama, en yüksek 5 + beraberlik) =====
 function saveOzelScanHistory(results){
