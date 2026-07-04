@@ -1300,6 +1300,17 @@ async function runDip(){
           '<div style="flex:1;min-width:90px;background:#0f0f0f;border-radius:10px;padding:12px"><div style="color:#888;font-size:.7rem;font-weight:bold">KONUM</div><div style="font-size:1.1rem;font-weight:bold;color:'+renk+'">'+(d.bandPos>=0?'+':'')+d.bandPos+'σ</div></div>'+
         '</div>'+
         (d.onerilenSure ? '<div style="background:#0f0f0f;border-radius:10px;padding:10px 14px;margin-bottom:12px;text-align:center"><span style="color:#888;font-size:.78rem">Bu hissenin dip sonrası tarihsel en iyi tutma süresi: </span><span style="color:#5c9ce6;font-weight:bold;font-size:.9rem">'+d.onerilenSure+' gün</span></div>' : '')+
+        (function(){
+          var r2=d.r2;
+          var kalite, renk2, aciklama2;
+          if(r2>=0.55){ kalite='Yüksek (kanala sadık)'; renk2='#2d8a34'; aciklama2='Fiyat trend kanalına düzenli uyuyor — band/dip sinyalleri bu hissede daha güvenilir.'; }
+          else if(r2>=0.35){ kalite='Orta'; renk2='#d4a017'; aciklama2='Kanal orta düzeyde düzenli — sinyaller kullanılabilir ama biraz gürültülü olabilir.'; }
+          else { kalite='Düşük (dağınık kanal)'; renk2='#ff7043'; aciklama2='Fiyat trend kanalından dağınık — band/dip sinyalleri bu hissede daha gürültülü, temkinli ol.'; }
+          return '<div style="background:#0f0f0f;border-radius:10px;padding:10px 14px;margin-bottom:12px">'+
+            '<div style="display:flex;justify-content:space-between;align-items:center"><span style="color:#888;font-size:.78rem">Kanal sadakati (sinyal güveni):</span><span style="color:'+renk2+';font-weight:bold;font-size:.85rem">'+kalite+' (R²:'+r2+')</span></div>'+
+            '<div style="color:#666;font-size:.72rem;margin-top:4px">'+aciklama2+'</div>'+
+          '</div>';
+        })()+
         '<div style="background:'+renk+'15;border-radius:10px;padding:14px;margin-bottom:12px;border-left:3px solid '+renk+'"><div style="color:#ccc;font-size:.85rem;line-height:1.5">'+d.aciklama+'</div></div>'+
         stopHtml+
         buildDipChart(d)+
