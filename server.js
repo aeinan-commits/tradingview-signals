@@ -1844,6 +1844,14 @@ const DIP_TUTMA = {'GARAN':5,'YKBNK':10,'ISCTR':10,'KCHOL':5,'THYAO':3,'BIMAS':1
       const yatay = Math.abs(s20 - s20p) / s20p < 0.05 && Math.abs(s50 - s50p) / s50p < 0.05;
       surunduren = dususZirve && volDusuk && yatay;
     }
+    // Bıçak (sert düşüş) kontrolü: son 20g -%15+ düşüş + kronik-bıçak listesinde
+    const BICAK_HISSELERI = ['GUBRF','KONTR','SASA','AYDEM','AKSA','EUPWR','AEFES','TTRAK','CANTE','CCOLA','HEKTS','EGEEN','VESTL','ARCLK','ZOREN','OYAKC','AGHOL','AKSEN','VESBE','MAVI','SAHOL','GESAN','ISMEN','HALKB'];
+    let bicakRisk = false;
+    if (closes.length >= 21) {
+      const last = closes.length - 1;
+      const dus20 = (closes[last] - closes[last - 20]) / closes[last - 20] * 100;
+      bicakRisk = dus20 <= -15 && BICAK_HISSELERI.includes(ticker);
+    }
     // Sinyal
     let sinyal, aciklama, stopSeviye = null;
     if (bandPos <= -1) {
@@ -1883,7 +1891,8 @@ const DIP_TUTMA = {'GARAN':5,'YKBNK':10,'ISCTR':10,'KCHOL':5,'THYAO':3,'BIMAS':1
       sinyal, aciklama, stopSeviye,
       chartPrice, chartTrend, chartLower, chartLower2,
       onerilenSure: DIP_TUTMA[ticker] || null,
-      surunduren
+      surunduren,
+      bicakRisk
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
