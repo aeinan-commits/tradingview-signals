@@ -1299,6 +1299,7 @@ async function runDip(){
           '<div style="flex:1;min-width:90px;background:#0f0f0f;border-radius:10px;padding:12px"><div style="color:#2d8a34;font-size:.7rem;font-weight:bold">UÇ DİP(-2σ)</div><div style="font-size:1.1rem;font-weight:bold;color:#2d8a34">₺'+d.lowerBand2+'</div></div>'+
           '<div style="flex:1;min-width:90px;background:#0f0f0f;border-radius:10px;padding:12px"><div style="color:#888;font-size:.7rem;font-weight:bold">KONUM</div><div style="font-size:1.1rem;font-weight:bold;color:'+renk+'">'+(d.bandPos>=0?'+':'')+d.bandPos+'σ</div></div>'+
         '</div>'+
+        (d.onerilenSure ? '<div style="background:#0f0f0f;border-radius:10px;padding:10px 14px;margin-bottom:12px;text-align:center"><span style="color:#888;font-size:.78rem">Bu hissenin dip sonrası tarihsel en iyi tutma süresi: </span><span style="color:#5c9ce6;font-weight:bold;font-size:.9rem">'+d.onerilenSure+' gün</span></div>' : '')+
         '<div style="background:'+renk+'15;border-radius:10px;padding:14px;margin-bottom:12px;border-left:3px solid '+renk+'"><div style="color:#ccc;font-size:.85rem;line-height:1.5">'+d.aciklama+'</div></div>'+
         stopHtml+
         buildDipChart(d)+
