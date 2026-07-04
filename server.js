@@ -1821,7 +1821,29 @@ const DIP_TUTMA = {'GARAN':5,'YKBNK':10,'ISCTR':10,'KCHOL':5,'THYAO':3,'BIMAS':1
     const r2 = ssTot === 0 ? 0 : 1 - ssRes / ssTot;
 
     const dipKarakterli = DIP_HISSELERI.includes(ticker);
-
+    // Süründüren (ölü dip) kontrolü: zirveden %30+ düşük + volatilite daralmış + ortalamalar yatay
+    let surunduren = false;
+    if (closes.length >= 260) {
+      const last = closes.length - 1;
+      const zirve1y = Math.max(...closes.slice(last - 250, last + 1));
+      const dususZirve = (closes[last] - zirve1y) / zirve1y <= -0.30;
+      // volatilite: son 60g vs son 120g
+      function volat(p) {
+        if (last < p) return null;
+        let rets = [];
+        for (let i = last - p + 1; i <= last; i++) rets.push((closes[i] - closes[i - 1]) / closes[i - 1]);
+        const m = rets.reduce((s, v) => s + v, 0) / rets.length;
+        const v = rets.reduce((s, x) => s + (x - m) * (x - m), 0) / rets.length;
+        return Math.sqrt(v);
+      }
+      const v60 = volat(60), v120 = volat(120);
+      const volDusuk = v60 !== null && v120 !== null && v60 < v120 * 0.9;
+      // ortalamalar yatay
+      function smaAt(p, off) { let s = 0; for (let i = last - off - p + 1; i <= last - off; i++) s += closes[i]; return s / p; }
+      const s20 = smaAt(20, 0), s20p = smaAt(20, 20), s50 = smaAt(50, 0), s50p = smaAt(50, 20);
+      const yatay = Math.abs(s20 - s20p) / s20p < 0.05 && Math.abs(s50 - s50p) / s50p < 0.05;
+      surunduren = dususZirve && volDusuk && yatay;
+    }
     // Sinyal
     let sinyal, aciklama, stopSeviye = null;
     if (bandPos <= -1) {
@@ -1860,7 +1882,8 @@ const DIP_TUTMA = {'GARAN':5,'YKBNK':10,'ISCTR':10,'KCHOL':5,'THYAO':3,'BIMAS':1
       r2: parseFloat(r2.toFixed(2)),
       sinyal, aciklama, stopSeviye,
       chartPrice, chartTrend, chartLower, chartLower2,
-      onerilenSure: DIP_TUTMA[ticker] || null
+      onerilenSure: DIP_TUTMA[ticker] || null,
+      surunduren
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
