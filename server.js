@@ -1776,8 +1776,7 @@ app.get('/viop30-sinyal', async (req, res) => {
 });
 // ===== HİSSE DİP SİNYALİ (dip-karakterli hisseler için) =====
 const DIP_HISSELERI = ['GARAN','YKBNK','ISCTR','KCHOL','THYAO','BIMAS','TCELL','SISE','EREGL','ARCLK','SASA','AKBNK','VAKBN','HALKB','MGROS','AEFES','ASELS','TAVHL','ENKAI','OYAKC','TTKOM','TSKB','KRDMD','TTRAK','EKGYO','AGHOL','MPARK','CWENE','ENJSA','DOHOL','BUCIM'];
-
-app.get('/dip-sinyal/:ticker', async (req, res) => {
+const DIP_TUTMA = {'GARAN':5,'YKBNK':10,'ISCTR':10,'KCHOL':5,'THYAO':3,'BIMAS':10,'TCELL':10,'SISE':3,'EREGL':10,'ARCLK':3,'SASA':5,'AKBNK':15,'VAKBN':5,'HALKB':15,'MGROS':3,'AEFES':3,'ASELS':15,'TAVHL':10,'ENKAI':5,'OYAKC':10,'TTKOM':10,'TSKB':5,'KRDMD':10,'TTRAK':10,'EKGYO':10,'AGHOL':5,'MPARK':3,'CWENE':5,'ENJSA':3,'DOHOL':3,'BUCIM':15};app.get('/dip-sinyal/:ticker', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
   try {
     const ticker = req.params.ticker.toUpperCase();
@@ -1860,7 +1859,8 @@ app.get('/dip-sinyal/:ticker', async (req, res) => {
       bandPos: parseFloat(bandPos.toFixed(2)),
       r2: parseFloat(r2.toFixed(2)),
       sinyal, aciklama, stopSeviye,
-      chartPrice, chartTrend, chartLower, chartLower2
+      chartPrice, chartTrend, chartLower, chartLower2,
+      onerilenSure: DIP_TUTMA[ticker] || null
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
