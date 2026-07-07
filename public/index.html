@@ -1190,6 +1190,7 @@ async function runViop30(){
   try{
     var res=await fetch('/viop30-sinyal');
     var d=await res.json();
+    _viopData = d;
     if(d.error){ box.innerHTML='<div class="error">❌ '+d.error+'</div>'; return; }
     var renk={'AL BÖLGESİ':'#2d8a34','İZLE':'#5c9ce6','NÖTR':'#d4a017','PAHALI':'#ff7043','BEKLE':'#888'}[d.sinyal]||'#888';
     var ikon={'AL BÖLGESİ':'🟢','İZLE':'👁️','NÖTR':'🟡','PAHALI':'🔴','BEKLE':'⏸️'}[d.sinyal]||'';
@@ -1239,6 +1240,53 @@ async function runViop30(){
       '</div>';
     window.scrollTo({top:document.getElementById('scanResult').offsetTop-20,behavior:'smooth'});
   }catch(e){ box.innerHTML='<div class="error">❌ Hata: '+e.message+'</div>'; }
+}
+  // Global: son VİOP verisini sakla (yeniden hesaplama için)
+var _viopData = null;
+
+function hesaplaGuncelEndeks(){
+  var input = document.getElementById('guncelEndeksInput');
+  if(!input) return;
+  var val = parseFloat(input.value.replace(',', '.'));
+  var sonucDiv = document.getElementById('guncelEndeksSonuc');
+  if(!val || val <= 0 || !_viopData){
+    if(sonucDiv) sonucDiv.innerHTML = '';
+    return;
+  }
+  var d = _viopData;
+  // Yeni bandPos hesabı
+  var yeniBandPos = (Math.log(val) - d.trendLogSon) / d.resStd;
+  var yeniSapmaPct = ((val - d.trendPrice) / d.trendPrice) * 100;
+  // Yeni sinyal (VİOP-30 mantığı: ≤-1.5 AL BÖLGESİ, vs)
+  var yeniSinyal, yeniRenk;
+  if(yeniBandPos <= -1.5){ yeniSinyal='AL BÖLGESİ'; yeniRenk='#2d8a34'; }
+  else if(yeniBandPos <= -0.5){ yeniSinyal='İZLE'; yeniRenk='#d4a017'; }
+  else if(yeniBandPos < 1.5){ yeniSinyal='NÖTR'; yeniRenk='#888'; }
+  else if(yeniBandPos < 2){ yeniSinyal='PAHALI'; yeniRenk='#e67e22'; }
+  else { yeniSinyal='BEKLE (çok pahalı)'; yeniRenk='#c0392b'; }
+  // Kontrol listesi fiyat-bazlı maddeleri yeniden
+  var netUst = yeniSapmaPct > 1;
+  var yeniStop = (val * 0.95).toFixed(0);
+  function kutu(label, aktif, deger){
+    var renk = aktif ? '#2d8a34' : '#666';
+    var ikon = aktif ? '✓' : '○';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0"><span style="color:'+renk+';font-weight:bold;width:16px">'+ikon+'</span><span style="flex:1;color:#ccc;font-size:.8rem">'+label+'</span><span style="color:'+(aktif?'#2d8a34':'#888')+';font-size:.75rem;font-weight:600">'+deger+'</span></div>';
+  }
+  sonucDiv.innerHTML =
+    '<div style="background:#0f0f0f;border:1px solid '+yeniRenk+';border-radius:10px;padding:14px;margin-top:10px">'+
+      '<div style="text-align:center;margin-bottom:10px"><span style="color:#888;font-size:.75rem">Girdiğiniz endekse göre: </span><span style="color:'+yeniRenk+';font-weight:bold;font-size:1.1rem">'+yeniSinyal+'</span></div>'+
+      '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:10px">'+
+        '<div style="text-align:center"><div style="color:#888;font-size:.68rem">GİRİLEN</div><div style="font-weight:bold">'+val.toFixed(0)+'</div></div>'+
+        '<div style="text-align:center"><div style="color:#5c9ce6;font-size:.68rem">TREND</div><div style="font-weight:bold;color:#5c9ce6">'+d.trendPrice.toFixed(0)+'</div></div>'+
+        '<div style="text-align:center"><div style="color:#888;font-size:.68rem">KONUM</div><div style="font-weight:bold;color:'+yeniRenk+'">'+(yeniBandPos>=0?'+':'')+yeniBandPos.toFixed(2)+'σ</div></div>'+
+        '<div style="text-align:center"><div style="color:#888;font-size:.68rem">TREND FARKI</div><div style="font-weight:bold">'+(yeniSapmaPct>=0?'+':'')+yeniSapmaPct.toFixed(2)+'%</div></div>'+
+      '</div>'+
+      '<div style="border-top:1px solid #1a1a1a;padding-top:8px">'+
+        kutu('Fiyat trend çizgisinin %1 üstünde', netUst, (yeniSapmaPct>=0?'+':'')+yeniSapmaPct.toFixed(2)+'%')+
+        kutu('AL bölgesinde (≤-1.5σ)', yeniBandPos<=-1.5, yeniBandPos.toFixed(2)+'σ')+
+      '</div>'+
+      '<div style="color:#666;font-size:.68rem;margin-top:6px">Not: Hacim, RSI gibi geçmiş-veri göstergeleri değişmez (tek fiyatla hesaplanmaz). Sadece konum ve fiyat-bazlı sinyaller güncellendi.</div>'+
+    '</div>';
 }
   function buildDipChart(d){
   var price=d.chartPrice, trend=d.chartTrend, low1=d.chartLower, low2=d.chartLower2;
@@ -1313,6 +1361,14 @@ async function runDip(){
         })()+
         (d.surunduren ? '<div style="background:#ff704315;border-radius:10px;padding:12px 14px;margin-bottom:12px;border-left:3px solid #ff7043"><div style="color:#ff7043;font-size:.85rem;font-weight:bold">⚠ Süründüren durum (ölü dip riski)</div><div style="color:#aaa;font-size:.75rem;margin-top:4px;line-height:1.4">Hisse zirveden %30+ düşmüş, volatilite daralmış, ortalamalar yataylaşmış — yani dipte ama sıkışmış/hareketsiz. Testlerde bu durumdaki hisseler dip sinyali verse bile endeks-göreli zayıf kaldı ve genelde öğüttü (yön vermeden bekletti). Dip sinyaline temkinli yaklaş — bu bir "canlı dip" olmayabilir.</div></div>' : '<div style="background:#2d8a3415;border-radius:10px;padding:10px 14px;margin-bottom:12px;border-left:3px solid #2d8a34"><div style="color:#2d8a34;font-size:.8rem;font-weight:bold">✓ Sıkışma durumu normal</div><div style="color:#888;font-size:.72rem;margin-top:3px">Hisse süründüren/ölü dip durumunda değil — dip sinyali daha güvenilir.</div></div>')+
         '<div style="background:'+renk+'15;border-radius:10px;padding:14px;margin-bottom:12px;border-left:3px solid '+renk+'"><div style="color:#ccc;font-size:.85rem;line-height:1.5">'+d.aciklama+'</div></div>'+
+        '<div style="background:#0f0f0f;border-radius:10px;padding:12px 14px;margin-bottom:12px;border:1px dashed #333">'+
+          '<div style="color:#888;font-size:.78rem;margin-bottom:6px">🔢 Güncel endeksi elle girin (opsiyonel — canlı değere göre yeniden hesaplar):</div>'+
+          '<div style="display:flex;gap:8px">'+
+            '<input id="guncelEndeksInput" type="text" inputmode="decimal" placeholder="örn: '+d.currentPrice.toFixed(0)+'" style="flex:1;background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:8px 10px;color:#fff;font-size:.9rem" onkeyup="if(event.key===\'Enter\')hesaplaGuncelEndeks()">'+
+            '<button onclick="hesaplaGuncelEndeks()" style="background:#e67e22;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-weight:bold;cursor:pointer">Hesapla</button>'+
+          '</div>'+
+          '<div id="guncelEndeksSonuc"></div>'+
+        '</div>'+
         (d.bicakRisk ? '<div style="background:#c0392b20;border-radius:10px;padding:12px 14px;margin-bottom:12px;border-left:3px solid #c0392b"><div style="color:#e74c3c;font-size:.85rem;font-weight:bold">🔪 Düşen bıçak riski!</div><div style="color:#ddd;font-size:.75rem;margin-top:4px;line-height:1.4">Bu hisse son 20 günde %15+ sert düştü VE tarihsel olarak sert düşüşlerden sonra toparlanması zayıf olan hisselerden. Şu an sadece "ucuz" değil, aktif bir çöküş içinde olabilir. Dip alımı burada tehlikeli — düşüş devam edebilir. Alacaksan mutlaka sıkı stop kullan, ya da toparlanma teyidini bekle.</div></div>' : '')+
       stopHtml+
         buildDipChart(d)+
