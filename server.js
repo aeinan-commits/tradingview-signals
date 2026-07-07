@@ -1768,7 +1768,9 @@ app.get('/viop30-sinyal', async (req, res) => {
       bugunKirilim,
       rsiVal: rsiVal !== null ? parseFloat(rsiVal.toFixed(0)) : null,
       ikiGunYukselis,
-      momentumDestek
+      momentumDestek,
+      resStd: resStd,
+      trendLogSon: a + b * (n - 1)
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
