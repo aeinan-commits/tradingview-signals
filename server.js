@@ -1927,20 +1927,20 @@ async function quickDip(ticker, headers) {
     for (let i = 0; i < n; i++) { const rr = y[i] - (a + b * i); rv += rr * rr; }
     const resStd = Math.sqrt(rv / n);
     const bandPos = resStd === 0 ? 0 : (y[n - 1] - (a + b * (n - 1))) / resStd;
-    return {
+        return {
       ticker,
       currentPrice: parseFloat(closes[M - 1].toFixed(2)),
       trendPrice: parseFloat(Math.exp(a + b * (n - 1)).toFixed(2)),
-      bandPos: parseFloat(bandPos.toFixed(2))
+      bandPos: parseFloat(bandPos.toFixed(2)),
+      dipKarakterli: DIP_HISSELERI.includes(ticker)
     };
-  } catch (e) { return null; }
-}
 
 app.get('/scan-dip', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
   const results = [];
-  for (let i = 0; i < DIP_HISSELERI.length; i += 4) {
-    const chunk = DIP_HISSELERI.slice(i, i + 4);
+    const VIOP_HISSELERI = ['AEFES','AKBNK','AKSEN','ALARK','ARCLK','ASELS','ASTOR','BIMAS','BRSAN','CIMSA','DOAS','DOHOL','EKGYO','ENKAI','ENJSA','EREGL','FROTO','GARAN','GUBRF','HALKB','HEKTS','ISCTR','KCHOL','KRDMD','MGROS','ODAS','OYAKC','PETKM','PGSUS','SAHOL','SASA','SISE','SOKM','TAVHL','TCELL','THYAO','TKFEN','TOASO','TSKB','TTKOM','TUPRS','ULKER','VAKBN','VESTL','YKBNK'];
+  for (let i = 0; i < VIOP_HISSELERI.length; i += 4) {
+    const chunk = VIOP_HISSELERI.slice(i, i + 4);
     const part = await Promise.all(chunk.map(t => quickDip(t, headers)));
     part.forEach(p => { if (p) results.push(p); });
   }
