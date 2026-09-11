@@ -1934,6 +1934,8 @@ async function quickDip(ticker, headers) {
       bandPos: parseFloat(bandPos.toFixed(2)),
       dipKarakterli: DIP_HISSELERI.includes(ticker)
     };
+  } catch (e) { return null; }
+}
 
 app.get('/scan-dip', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
