@@ -1806,18 +1806,14 @@ const DIP_TUTMA = {'GARAN':5,'YKBNK':10,'ISCTR':10,'KCHOL':5,'THYAO':3,'BIMAS':1
     while (closesRaw.length >= 2 && (volsRaw[volsRaw.length - 1] === 0 || volsRaw[volsRaw.length - 1] === null)) {
       closesRaw = closesRaw.slice(0, -1); volsRaw = volsRaw.slice(0, -1);
     }
-        // Canlı fiyat: bugünün kapanışı henüz gelmemişse (null), meta'daki güncel fiyatı son bar olarak kullan
+    // Canlı fiyat: son işlem fiyatı, listedeki son kapanıştan farklıysa son barı güncelle
     const meta = data.chart.result[0].meta;
     const canliFiyat = meta && meta.regularMarketPrice ? meta.regularMarketPrice : null;
-    const sonKapanisTS = data.chart.result[0].timestamp ? data.chart.result[0].timestamp[data.chart.result[0].timestamp.length - 1] : 0;
-    const canliTS = meta && meta.regularMarketTime ? meta.regularMarketTime : 0;
-    // Eğer canlı fiyat, listedeki son kapanıştan farklı bir güne aitse (yani daha güncel), ekle
     if (canliFiyat && canliFiyat > 0 && closesRaw.length > 0) {
-      const gunFarki = (canliTS - sonKapanisTS) / 86400;
-      if (gunFarki > 0.5) {
-        // canlı fiyat, son kapanıştan daha yeni bir güne ait — son bar olarak ekle
-        closesRaw.push(canliFiyat);
-        volsRaw.push(1); // dummy hacim (0 olmasın ki temizlik atmasın)
+      const sonKapanis = closesRaw[closesRaw.length - 1];
+      // Canlı fiyat son kapanıştan %0.1'den fazla farklıysa (yani gerçekten yeni bir işlem varsa) son barı güncelle
+      if (Math.abs(canliFiyat - sonKapanis) / sonKapanis > 0.001) {
+        closesRaw[closesRaw.length - 1] = canliFiyat;
       }
     }
     const closes = closesRaw;
