@@ -1643,6 +1643,18 @@ app.get('/viop30-sinyal', async (req, res) => {
       closesRaw = closesRaw.slice(0, -1);
       volsRaw = volsRaw.slice(0, -1);
     }
+        // Canlı fiyat: bugünün kapanışı henüz gelmemişse (null), meta'daki güncel fiyatı son bar olarak kullan
+    const meta = data.chart.result[0].meta;
+    const canliFiyat = meta && meta.regularMarketPrice ? meta.regularMarketPrice : null;
+    const sonKapanisTS = data.chart.result[0].timestamp ? data.chart.result[0].timestamp[data.chart.result[0].timestamp.length - 1] : 0;
+    const canliTS = meta && meta.regularMarketTime ? meta.regularMarketTime : 0;
+    if (canliFiyat && canliFiyat > 0 && closesRaw.length > 0) {
+      const gunFarki = (canliTS - sonKapanisTS) / 86400;
+      if (gunFarki > 0.5) {
+        closesRaw.push(canliFiyat);
+        volsRaw.push(1);
+      }
+    }
     const closes = closesRaw;
     const N = closes.length;
     if (N < 260) return res.status(500).json({ error: 'Yeterli veri yok' });
