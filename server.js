@@ -1934,6 +1934,14 @@ async function quickDip(ticker, headers) {
       if (q.close[i] !== null && q.close[i] > 0) { cRaw.push(q.close[i]); vRaw.push(q.volume[i] !== null ? q.volume[i] : 0); }
     }
     while (cRaw.length >= 2 && (vRaw[vRaw.length - 1] === 0 || vRaw[vRaw.length - 1] === null)) { cRaw = cRaw.slice(0, -1); vRaw = vRaw.slice(0, -1); }
+        const meta = data.chart.result[0].meta;
+    const canliFiyat = meta && meta.regularMarketPrice ? meta.regularMarketPrice : null;
+    if (canliFiyat && canliFiyat > 0 && cRaw.length > 0) {
+      const sonKapanis = cRaw[cRaw.length - 1];
+      if (Math.abs(canliFiyat - sonKapanis) / sonKapanis > 0.001) {
+        cRaw[cRaw.length - 1] = canliFiyat;
+      }
+    }
     const closes = cRaw;
     const M = closes.length;
     if (M < 260) return null;
