@@ -1893,14 +1893,19 @@ const DIP_TUTMA = {'GARAN':5,'YKBNK':10,'ISCTR':10,'KCHOL':5,'THYAO':3,'BIMAS':1
     }
 
     // Grafik
-    const step = Math.max(1, Math.floor(W / 150));
-    const chartPrice = [], chartTrend = [], chartLower = [], chartLower2 = [];
+        // Grafik için tarih dizisi (son W barın timestamp'i)
+    const tsAll = data.chart.result[0].timestamp || [];
+    // closes ile aynı hizada olması için: closes temizlenirken bazı barlar atıldı; basitçe son W tarihi al
+    const tsSlice = tsAll.slice(Math.max(0, tsAll.length - W));
+       const step = Math.max(1, Math.floor(W / 150));
+    const chartPrice = [], chartTrend = [], chartLower = [], chartLower2 = [], chartDates = [];
     for (let i = 0; i < W; i += step) {
       const tv = a + b * i;
       chartPrice.push(parseFloat(slice[i].toFixed(2)));
       chartTrend.push(parseFloat(Math.exp(tv).toFixed(2)));
       chartLower.push(parseFloat(Math.exp(tv - resStd).toFixed(2)));
       chartLower2.push(parseFloat(Math.exp(tv - 2 * resStd).toFixed(2)));
+      chartDates.push(tsSlice[i] ? new Date(tsSlice[i] * 1000).toISOString().slice(0, 10) : '');
     }
 
     res.json({
@@ -1913,7 +1918,7 @@ const DIP_TUTMA = {'GARAN':5,'YKBNK':10,'ISCTR':10,'KCHOL':5,'THYAO':3,'BIMAS':1
       bandPos: parseFloat(bandPos.toFixed(2)),
       r2: parseFloat(r2.toFixed(2)),
       sinyal, aciklama, stopSeviye,
-      chartPrice, chartTrend, chartLower, chartLower2,
+      chartPrice, chartTrend, chartLower, chartLower2, chartDates
       onerilenSure: DIP_TUTMA[ticker] || null,
       surunduren,
       bicakRisk
