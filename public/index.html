@@ -1426,6 +1426,20 @@ async function runScanDip(){
     var dip=d.results.filter(function(r){ return r.bandPos>-2 && r.bandPos<=-1; });
     var izle=d.results.filter(function(r){ return r.bandPos>-1 && r.bandPos<0; });
     var digerleri=d.results.filter(function(r){ return r.bandPos>=0; });
+        // Piyasa dağılımı özeti (breadth) — tarafsız bilgi
+    var toplam = ucDip.length + dip.length + izle.length + digerleri.length;
+    function pct(n){ return toplam>0 ? Math.round((n/toplam)*100) : 0; }
+    var izleUstPct = pct(izle.length + digerleri.length);
+    var ozetHtml = '<div style="background:#1a1a1a;border-radius:12px;padding:14px 16px;margin-bottom:16px">'+
+      '<div style="color:#aaa;font-size:.8rem;font-weight:bold;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">📊 Piyasa Dağılımı ('+toplam+' hisse)</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<div style="flex:1;min-width:110px;background:#0f0f0f;border-radius:8px;padding:10px;text-align:center;border-top:3px solid #2d8a34"><div style="font-size:1.4rem;font-weight:bold;color:#2d8a34">'+ucDip.length+'</div><div style="color:#888;font-size:.7rem">🟢 Uç dip (≤-2σ)</div><div style="color:#2d8a34;font-size:.78rem;font-weight:bold">%'+pct(ucDip.length)+'</div></div>'+
+        '<div style="flex:1;min-width:110px;background:#0f0f0f;border-radius:8px;padding:10px;text-align:center;border-top:3px solid #d4a017"><div style="font-size:1.4rem;font-weight:bold;color:#d4a017">'+dip.length+'</div><div style="color:#888;font-size:.7rem">🟡 Dip (-1..-2σ)</div><div style="color:#d4a017;font-size:.78rem;font-weight:bold">%'+pct(dip.length)+'</div></div>'+
+        '<div style="flex:1;min-width:110px;background:#0f0f0f;border-radius:8px;padding:10px;text-align:center;border-top:3px solid #5c9ce6"><div style="font-size:1.4rem;font-weight:bold;color:#5c9ce6">'+izle.length+'</div><div style="color:#888;font-size:.7rem">👁️ İzlemede</div><div style="color:#5c9ce6;font-size:.78rem;font-weight:bold">%'+pct(izle.length)+'</div></div>'+
+        '<div style="flex:1;min-width:110px;background:#0f0f0f;border-radius:8px;padding:10px;text-align:center;border-top:3px solid #888"><div style="font-size:1.4rem;font-weight:bold;color:#aaa">'+digerleri.length+'</div><div style="color:#888;font-size:.7rem">⚪ Trend üstü</div><div style="color:#aaa;font-size:.78rem;font-weight:bold">%'+pct(digerleri.length)+'</div></div>'+
+      '</div>'+
+      '<div style="color:#666;font-size:.7rem;margin-top:8px;line-height:1.4">İzlemede + trend üstü toplamı: <b style="color:#aaa">%'+izleUstPct+'</b>. Bu oran yükseldikçe piyasa ısınır; testlerde uzun vadede (20 gün) getiri hafif zayıflama eğilimi gösterdi ama kısa vadede (1-5 gün) belirgin bir düzeltme sinyali vermedi. Tarafsız bir durum göstergesidir, al/sat sinyali değildir.</div>'+
+    '</div>';
 
     function kart(r,renk){
       var sapma=(((r.currentPrice-r.trendPrice)/r.trendPrice)*100).toFixed(0);
@@ -1440,10 +1454,24 @@ async function runScanDip(){
       arr.forEach(function(r){ h+=kart(r,renk); });
       return h+'</div></div>';
     }
-
+    // Piyasa dağılımı özeti (breadth) — tarafsız bilgi
+    var toplamB = ucDip.length + dip.length + izle.length + digerleri.length;
+    function pctB(nn){ return toplamB>0 ? Math.round((nn/toplamB)*100) : 0; }
+    var izleUstPct = pctB(izle.length + digerleri.length);
+    var ozetHtml = '<div style="background:#1a1a1a;border-radius:12px;padding:14px 16px;margin-bottom:16px">'+
+      '<div style="color:#aaa;font-size:.8rem;font-weight:bold;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">📊 Piyasa Dağılımı ('+toplamB+' hisse)</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<div style="flex:1;min-width:110px;background:#0f0f0f;border-radius:8px;padding:10px;text-align:center;border-top:3px solid #2d8a34"><div style="font-size:1.4rem;font-weight:bold;color:#2d8a34">'+ucDip.length+'</div><div style="color:#888;font-size:.7rem">🟢 Uç dip (≤-2σ)</div><div style="color:#2d8a34;font-size:.78rem;font-weight:bold">%'+pctB(ucDip.length)+'</div></div>'+
+        '<div style="flex:1;min-width:110px;background:#0f0f0f;border-radius:8px;padding:10px;text-align:center;border-top:3px solid #d4a017"><div style="font-size:1.4rem;font-weight:bold;color:#d4a017">'+dip.length+'</div><div style="color:#888;font-size:.7rem">🟡 Dip (-1..-2σ)</div><div style="color:#d4a017;font-size:.78rem;font-weight:bold">%'+pctB(dip.length)+'</div></div>'+
+        '<div style="flex:1;min-width:110px;background:#0f0f0f;border-radius:8px;padding:10px;text-align:center;border-top:3px solid #5c9ce6"><div style="font-size:1.4rem;font-weight:bold;color:#5c9ce6">'+izle.length+'</div><div style="color:#888;font-size:.7rem">👁️ İzlemede</div><div style="color:#5c9ce6;font-size:.78rem;font-weight:bold">%'+pctB(izle.length)+'</div></div>'+
+        '<div style="flex:1;min-width:110px;background:#0f0f0f;border-radius:8px;padding:10px;text-align:center;border-top:3px solid #888"><div style="font-size:1.4rem;font-weight:bold;color:#aaa">'+digerleri.length+'</div><div style="color:#888;font-size:.7rem">⚪ Trend üstü</div><div style="color:#aaa;font-size:.78rem;font-weight:bold">%'+pctB(digerleri.length)+'</div></div>'+
+      '</div>'+
+      '<div style="color:#666;font-size:.7rem;margin-top:8px;line-height:1.4">İzlemede + trend üstü toplamı: <b style="color:#aaa">%'+izleUstPct+'</b>. Bu oran yükseldikçe piyasa ısınır; testlerde uzun vadede (20 gün) getiri hafif zayıflama eğilimi gösterdi ama kısa vadede (1-5 gün) belirgin bir düzeltme sinyali vermedi. Tarafsız durum göstergesidir, al/sat sinyali değildir.</div>'+
+    '</div>';
     var html='<div style="background:#1a1a1a;border-radius:16px;padding:20px">'+
       '<div style="color:#2d8a34;font-size:1.1rem;font-weight:bold;margin-bottom:4px">📉 Dip Taraması</div>'+
       '<div style="color:#888;font-size:.72rem;margin-bottom:16px">Dip-karakterli hisseler, kendi trend çizgilerine göre konumlarıyla. Karta tıklayınca detay açılır. Sadece dip-karakterli hisseler taranır.</div>';
+        html += ozetHtml;
     html+=grup('🟢 UÇ DİP (-2σ altı)',ucDip,'#2d8a34','Tarihsel olarak en uç ucuzluk. Nadir ve en güçlü dip bölgesi.');
     html+=grup('🟡 DİP BÖLGESİ (-1σ ile -2σ arası)',dip,'#d4a017','Trend çizgisinin belirgin altı. Ana dip alım bölgesi (5 gün tutma).');
     html+=grup('👁️ İZLEMEDE (-1σ ile 0 arası)',izle,'#5c9ce6','Trendin hafif altında. Henüz dip değil; -1σ altına inerse dip bölgesine girer.');
