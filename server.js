@@ -1707,8 +1707,10 @@ app.get('/viop30-sinyal', async (req, res) => {
       aciklama = 'Endeks trend çizgisine yakın, ne uç ucuz ne uç pahalı. Belirgin bir sinyal yok.';
     }
 
-    // Grafik verisi (fiyat + trend + bantlar, son 250 bar)
-    const chartPrice = [], chartTrend = [], chartUpper = [], chartLower = [];
+        // Grafik verisi (fiyat + trend + bantlar, son 250 bar)
+    const chartPrice = [], chartTrend = [], chartUpper = [], chartLower = [], chartDates = [];
+    const viopTsAll = data.chart.result[0].timestamp || [];
+    const viopTsSlice = viopTsAll.slice(Math.max(0, viopTsAll.length - W));
     const step = Math.max(1, Math.floor(W / 150));
     for (let i = 0; i < W; i += step) {
       const tv = a + b * i;
@@ -1716,6 +1718,7 @@ app.get('/viop30-sinyal', async (req, res) => {
       chartTrend.push(parseFloat(Math.exp(tv).toFixed(0)));
       chartUpper.push(parseFloat(Math.exp(tv + 2 * resStd).toFixed(0)));
       chartLower.push(parseFloat(Math.exp(tv - 2 * resStd).toFixed(0)));
+      chartDates.push(viopTsSlice[i] ? new Date(viopTsSlice[i] * 1000).toISOString().slice(0, 10) : '');
     }
     if ((W - 1) % step !== 0) {
       const tv = a + b * (W - 1);
@@ -1723,6 +1726,7 @@ app.get('/viop30-sinyal', async (req, res) => {
       chartTrend.push(parseFloat(Math.exp(tv).toFixed(0)));
       chartUpper.push(parseFloat(Math.exp(tv + 2 * resStd).toFixed(0)));
       chartLower.push(parseFloat(Math.exp(tv - 2 * resStd).toFixed(0)));
+      chartDates.push(viopTsSlice[W - 1] ? new Date(viopTsSlice[W - 1] * 1000).toISOString().slice(0, 10) : '');
     }
 // ===== EK GÖSTERGELER (kontrol listesi için) =====
     // 1. Net geçme: fiyat trend fiyatının %1 üstünde mi
@@ -1772,7 +1776,7 @@ app.get('/viop30-sinyal', async (req, res) => {
       sinyal,
       aciklama,
       stopSeviye,
-      chartPrice, chartTrend, chartUpper, chartLower,
+      chartPrice, chartTrend, chartUpper, chartLower, chartDates,
       trendUstuPct: parseFloat(trendUstuPct.toFixed(2)),
       netUstunde,
       hacimOran: hacimOran !== null ? parseFloat(hacimOran.toFixed(2)) : null,
