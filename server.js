@@ -1918,7 +1918,7 @@ const DIP_TUTMA = {'GARAN':5,'YKBNK':10,'ISCTR':10,'KCHOL':5,'THYAO':3,'BIMAS':1
       bandPos: parseFloat(bandPos.toFixed(2)),
       r2: parseFloat(r2.toFixed(2)),
       sinyal, aciklama, stopSeviye,
-      chartPrice, chartTrend, chartLower, chartLower2, chartDates
+      chartPrice, chartTrend, chartLower, chartLower2, chartDates,
       onerilenSure: DIP_TUTMA[ticker] || null,
       surunduren,
       bicakRisk
