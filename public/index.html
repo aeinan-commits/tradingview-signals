@@ -1150,7 +1150,7 @@ document.getElementById('viop30Btn').addEventListener('click', runViop30);
 function buildViopChart(d){
   var price=d.chartPrice, trend=d.chartTrend, upper=d.chartUpper, lower=d.chartLower;
   if(!price || price.length<2) return '';
-  var W=900, H=320, padL=60, padR=15, padT=15, padB=25;
+  var W=900, H=320, padL=60, padR=15, padT=15, padB=38;
   var n=price.length;
   var allVals=price.concat(trend).concat(upper).concat(lower);
   var minV=Math.min.apply(null,allVals), maxV=Math.max.apply(null,allVals);
@@ -1164,13 +1164,29 @@ function buildViopChart(d){
     yLabels+='<line x1="'+padL+'" y1="'+yy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+yy.toFixed(1)+'" stroke="#222" stroke-width="1"/>';
     yLabels+='<text x="'+(padL-6)+'" y="'+(yy+3).toFixed(1)+'" fill="#666" font-size="10" text-anchor="end">'+Math.round(val)+'</text>';
   }
+    // Dikey tarih çizgileri
+  var dateLines='';
+  var dates=d.chartDates;
+  if(dates && dates.length===n){
+    var tickCount=5;
+    for(var t=0;t<tickCount;t++){
+      var di=Math.round(t*(n-1)/(tickCount-1));
+      var xx=x(di);
+      var parts=(dates[di]||'').split('-');
+      var aylar=['','Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+      var etiket = parts.length===3 ? (parseInt(parts[2])+' '+aylar[parseInt(parts[1])]) : '';
+      dateLines+='<line x1="'+xx.toFixed(1)+'" y1="'+padT+'" x2="'+xx.toFixed(1)+'" y2="'+(H-padB)+'" stroke="#444" stroke-width="1" stroke-dasharray="2 4" opacity="0.5"/>'+
+        '<text x="'+xx.toFixed(1)+'" y="'+(H-padB+16)+'" fill="#888" font-size="10" text-anchor="middle">'+etiket+'</text>';
+    }
+  }
   var areaPath='';
   for(var i=0;i<n;i++){ areaPath += (i===0?'M':'L')+x(i).toFixed(1)+' '+y(upper[i]).toFixed(1)+' '; }
   for(var i=n-1;i>=0;i--){ areaPath += 'L'+x(i).toFixed(1)+' '+y(lower[i]).toFixed(1)+' '; }
   areaPath+='Z';
   var lastX=x(n-1), lastYp=y(price[n-1]);
-  var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">'+
+   var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" preserveAspectRatio="xMidYMid meet">'+
     yLabels+
+    dateLines+
     '<path d="'+areaPath+'" fill="#e67e22" opacity="0.07"/>'+
     '<path d="'+pathOf(upper)+'" fill="none" stroke="#e67e22" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>'+
     '<path d="'+pathOf(lower)+'" fill="none" stroke="#e67e22" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>'+
