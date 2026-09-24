@@ -120,6 +120,7 @@ h1{color:#f0b90b;text-align:center;margin-bottom:20px}
 </div>
 <div style="text-align:center;margin-top:24px;margin-bottom:20px">
 <button id="viop30Btn" style="padding:10px 24px;background:#e67e22;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem">⚡ VİOP-30 Sinyal</button>
+<button id="viopGunlukBtn" style="padding:10px 24px;background:#5c9ce6;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:.9rem;margin-left:8px">📊 VİOP Günlük Değişim</button>
 </div>
 <div class="search" style="margin-top:16px">
 <input id="tiDip" placeholder="DİP SİNYALİ İÇİN HİSSE KODU (örn: GARAN)" onkeydown="if(event.key==='Enter')runDip()">
@@ -1264,6 +1265,43 @@ async function runViop30(){
       '</div>';
     window.scrollTo({top:document.getElementById('scanResult').offsetTop-20,behavior:'smooth'});
   }catch(e){ box.innerHTML='<div class="error">❌ Hata: '+e.message+'</div>'; }
+}
+  document.getElementById('viopGunlukBtn').addEventListener('click', runViopGunluk);
+async function runViopGunluk(){
+  var btn=document.getElementById('viopGunlukBtn');
+  var box=document.getElementById('scanResult');
+  btn.disabled=true; btn.textContent='⏳ Yükleniyor...';
+  box.style.display='block';
+  box.innerHTML='<div style="background:#1a1a1a;border-radius:12px;padding:30px;text-align:center;color:#aaa">⏳ VİOP hisseleri günlük değişim hesaplanıyor...</div>';
+  try{
+    var res=await fetch('/viop-gunluk');
+    var d=await res.json();
+    if(!d.results){ box.innerHTML='<div class="error">❌ Veri alınamadı.</div>'; btn.disabled=false; btn.textContent='📊 VİOP Günlük Değişim'; return; }
+    var artan=d.results.filter(function(r){return r.degisim>0;}).length;
+    var azalan=d.results.filter(function(r){return r.degisim<0;}).length;
+    var esit=d.results.length-artan-azalan;
+    var html='<div style="background:#1a1a1a;border-radius:16px;padding:20px">'+
+      '<div style="color:#5c9ce6;font-size:1.1rem;font-weight:bold;margin-bottom:4px">📊 VİOP Günlük Değişim ('+d.count+' hisse)</div>'+
+      '<div style="color:#888;font-size:.72rem;margin-bottom:14px">Önceki kapanışa göre anlık değişim. En çok artandan azalana sıralı.</div>'+
+      '<div style="display:flex;gap:10px;justify-content:center;margin-bottom:16px;flex-wrap:wrap">'+
+        '<div style="background:#0f0f0f;border-radius:8px;padding:8px 16px;text-align:center"><span style="color:#2d8a34;font-weight:bold;font-size:1.1rem">'+artan+'</span> <span style="color:#888;font-size:.75rem">artıda</span></div>'+
+        '<div style="background:#0f0f0f;border-radius:8px;padding:8px 16px;text-align:center"><span style="color:#ff4444;font-weight:bold;font-size:1.1rem">'+azalan+'</span> <span style="color:#888;font-size:.75rem">ekside</span></div>'+
+        (esit>0?'<div style="background:#0f0f0f;border-radius:8px;padding:8px 16px;text-align:center"><span style="color:#888;font-weight:bold;font-size:1.1rem">'+esit+'</span> <span style="color:#888;font-size:.75rem">değişmedi</span></div>':'')+
+      '</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:8px">';
+    d.results.forEach(function(r){
+      var c = r.degisim>0 ? '#2d8a34' : r.degisim<0 ? '#ff4444' : '#888';
+      var ok = r.degisim>0 ? '▲' : r.degisim<0 ? '▼' : '–';
+      html+='<div onclick="document.getElementById(\'tiDip\').value=\''+r.ticker+'\';runDip()" style="cursor:pointer;background:#0f0f0f;border:1px solid #2a2a2a;border-left:4px solid '+c+';border-radius:8px;padding:8px 12px;min-width:130px" onmouseover="this.style.filter=\'brightness(1.4)\'" onmouseout="this.style.filter=\'none\'">'+
+        '<div style="display:flex;justify-content:space-between;gap:10px"><span style="color:#f0b90b;font-weight:bold;font-size:.9rem">'+r.ticker+'</span><span style="color:'+c+';font-weight:bold;font-size:.85rem">'+ok+' '+(r.degisim>=0?'+':'')+r.degisim+'%</span></div>'+
+        '<div style="color:#888;font-size:.72rem;margin-top:3px">₺'+r.price+'</div>'+
+      '</div>';
+    });
+    html+='</div><div class="vol-desc" style="margin-top:12px">Önceki kapanış → anlık fiyat değişimi. Sadece takip amaçlıdır. Karta tıklayınca hissenin dip analizi açılır.</div></div>';
+    box.innerHTML=html;
+    window.scrollTo({top:document.getElementById('scanResult').offsetTop-20,behavior:'smooth'});
+  }catch(e){ box.innerHTML='<div class="error">❌ Hata: '+e.message+'</div>'; }
+  btn.disabled=false; btn.textContent='📊 VİOP Günlük Değişim';
 }
   // Global: son VİOP verisini sakla (yeniden hesaplama için)
 var _viopData = null;
