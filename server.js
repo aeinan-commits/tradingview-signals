@@ -1975,7 +1975,42 @@ async function quickDip(ticker, headers) {
     };
   } catch (e) { return null; }
 }
-
+// ===== VİOP GÜNLÜK DEĞİŞİM =====
+app.get('/viop-gunluk', async (req, res) => {
+  const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
+  const VIOP_LISTE = ['AEFES','AKBNK','AKSEN','ALARK','ARCLK','ASELS','ASTOR','BIMAS','BRSAN','CIMSA','DOAS','DOHOL','EKGYO','ENKAI','ENJSA','EREGL','FROTO','GARAN','GUBRF','HALKB','HEKTS','ISCTR','KCHOL','KRDMD','MGROS','ODAS','OYAKC','PETKM','PGSUS','SAHOL','SASA','SISE','SOKM','TAVHL','TCELL','THYAO','TKFEN','TOASO','TSKB','TTKOM','TUPRS','ULKER','VAKBN','VESTL','YKBNK'];
+  async function birHisse(ticker) {
+    try {
+      const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.IS?interval=1d&range=5d&events=div%2Csplit`, { headers });
+      const data = await r.json();
+      if (!data.chart || !data.chart.result || !data.chart.result[0]) return null;
+      const result = data.chart.result[0];
+      const q = result.indicators.quote[0];
+      const meta = result.meta;
+      // null olmayan kapanışları topla
+      let closes = [];
+      for (let i = 0; i < q.close.length; i++) if (q.close[i] !== null && q.close[i] > 0) closes.push(q.close[i]);
+      if (closes.length < 2) return null;
+      // güncel fiyat: canlı fiyat varsa o, yoksa son kapanış
+      const canli = meta && meta.regularMarketPrice ? meta.regularMarketPrice : closes[closes.length - 1];
+      // önceki kapanış: canlı fiyat son kapanıştan farklıysa son kapanış "dün"dür; aynıysa bir öncekine bak
+      const sonKapanis = closes[closes.length - 1];
+      let oncekiKapanis;
+      if (Math.abs(canli - sonKapanis) / sonKapanis > 0.0005) oncekiKapanis = sonKapanis;
+      else oncekiKapanis = closes[closes.length - 2];
+      const degisim = ((canli - oncekiKapanis) / oncekiKapanis) * 100;
+      return { ticker, price: parseFloat(canli.toFixed(2)), degisim: parseFloat(degisim.toFixed(2)) };
+    } catch (e) { return null; }
+  }
+  const results = [];
+  for (let i = 0; i < VIOP_LISTE.length; i += 5) {
+    const chunk = VIOP_LISTE.slice(i, i + 5);
+    const part = await Promise.all(chunk.map(t => birHisse(t)));
+    part.forEach(p => { if (p) results.push(p); });
+  }
+  results.sort((a, b) => b.degisim - a.degisim);
+  res.json({ count: results.length, results });
+});
 app.get('/scan-dip', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
   const results = [];
