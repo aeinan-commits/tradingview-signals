@@ -1793,12 +1793,15 @@ app.get('/viop30-sinyal', async (req, res) => {
   }
 });
 // ===== HİSSE DİP SİNYALİ (dip-karakterli hisseler için) =====
-const DIP_HISSELERI = ['GARAN','YKBNK','ISCTR','KCHOL','THYAO','BIMAS','TCELL','SISE','EREGL','ARCLK','SASA','AKBNK','VAKBN','HALKB','MGROS','AEFES','ASELS','TAVHL','ENKAI','OYAKC','TTKOM','TSKB','KRDMD','TTRAK','EKGYO','AGHOL','MPARK','CWENE','ENJSA','DOHOL','BUCIM'];
+const DIP_HISSELERI = ['GARAN','YKBNK','ISCTR','KCHOL','THYAO','BIMAS','TCELL','SISE','EREGL','ARCLK','SASA','AKBNK','VAKBN','HALKB','MGROS','AEFES','ASELS','TAVHL','ENKAI','OYAKC','TTKOM','TSKB','KRDMD','TTRAK','EKGYO','AGHOL','MPARK','CWENE','ENJSA','DOHOL','BUCIM','XBANK','PALADYUM','BAKIR','GUMUS','PLATIN'];
 const DIP_TUTMA = {'GARAN':5,'YKBNK':10,'ISCTR':10,'KCHOL':5,'THYAO':3,'BIMAS':10,'TCELL':10,'SISE':3,'EREGL':10,'ARCLK':3,'SASA':5,'AKBNK':15,'VAKBN':5,'HALKB':15,'MGROS':3,'AEFES':3,'ASELS':15,'TAVHL':10,'ENKAI':5,'OYAKC':10,'TTKOM':10,'TSKB':5,'KRDMD':10,'TTRAK':10,'EKGYO':10,'AGHOL':5,'MPARK':3,'CWENE':5,'ENJSA':3,'DOHOL':3,'BUCIM':15};app.get('/dip-sinyal/:ticker', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
   try {
-    const ticker = req.params.ticker.toUpperCase();
-    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.IS?interval=1d&range=2y&events=div%2Csplit`, { headers });
+        const ticker = req.params.ticker.toUpperCase();
+    // Özel enstrümanlar (VİOP dayanak varlıkları) — Yahoo sembolü .IS'li değil
+    const OZEL_SEMBOL = { 'PALADYUM':'PA=F', 'BAKIR':'HG=F', 'GUMUS':'SI=F', 'PLATIN':'PL=F', 'XBANK':'XBANK.IS' };
+    const yahooSembol = OZEL_SEMBOL[ticker] || (ticker + '.IS');
+        const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSembol}?interval=1d&range=2y&events=div%2Csplit`, { headers });
     const data = await r.json();
     if (!data.chart || !data.chart.result || !data.chart.result[0]) return res.status(500).json({ error: 'Hisse bulunamadı: ' + ticker });
     const q = data.chart.result[0].indicators.quote[0];
