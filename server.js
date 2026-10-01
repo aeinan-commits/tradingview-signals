@@ -1937,7 +1937,9 @@ const DIP_TUTMA = {'GARAN':5,'YKBNK':10,'ISCTR':10,'KCHOL':5,'THYAO':3,'BIMAS':1
 // Tek hisse için hızlı dip hesabı (tarama)
 async function quickDip(ticker, headers) {
   try {
-    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.IS?interval=1d&range=2y&events=div%2Csplit`, { headers });
+    const OZEL_SEMBOL = { 'PALADYUM':'PA=F', 'BAKIR':'HG=F', 'GUMUS':'SI=F', 'PLATIN':'PL=F', 'XBANK':'XBANK.IS' };
+    const yahooSembol = OZEL_SEMBOL[ticker] || (ticker + '.IS');
+    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSembol}?interval=1d&range=2y&events=div%2Csplit`, { headers });
     const data = await r.json();
     if (!data.chart || !data.chart.result || !data.chart.result[0]) return null;
     const q = data.chart.result[0].indicators.quote[0];
@@ -2017,7 +2019,7 @@ app.get('/viop-gunluk', async (req, res) => {
 app.get('/scan-dip', async (req, res) => {
   const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'application/json' };
   const results = [];
-    const VIOP_HISSELERI = ['AEFES','AKBNK','AKSEN','ALARK','ARCLK','ASELS','ASTOR','BIMAS','BRSAN','CIMSA','DOAS','DOHOL','EKGYO','ENKAI','ENJSA','EREGL','FROTO','GARAN','GUBRF','HALKB','HEKTS','ISCTR','KCHOL','KRDMD','MGROS','ODAS','OYAKC','PETKM','PGSUS','SAHOL','SASA','SISE','SOKM','TAVHL','TCELL','THYAO','TKFEN','TOASO','TSKB','TTKOM','TUPRS','ULKER','VAKBN','VESTL','YKBNK'];
+    const VIOP_HISSELERI = ['AEFES','AKBNK','AKSEN','ALARK','ARCLK','ASELS','ASTOR','BIMAS','BRSAN','CIMSA','DOAS','DOHOL','EKGYO','ENKAI','ENJSA','EREGL','FROTO','GARAN','GUBRF','HALKB','HEKTS','ISCTR','KCHOL','KRDMD','MGROS','ODAS','OYAKC','PETKM','PGSUS','SAHOL','SASA','SISE','SOKM','TAVHL','TCELL','THYAO','TKFEN','TOASO','TSKB','TTKOM','TUPRS','ULKER','VAKBN','VESTL','YKBNK','XBANK','PALADYUM','BAKIR','GUMUS','PLATIN'];
   for (let i = 0; i < VIOP_HISSELERI.length; i += 4) {
     const chunk = VIOP_HISSELERI.slice(i, i + 4);
     const part = await Promise.all(chunk.map(t => quickDip(t, headers)));
